@@ -98,6 +98,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('projects');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null); // 인증 에러 상태 추가
   
   // UI State
   const [selectedProject, setSelectedProject] = useState(null);
@@ -125,14 +126,30 @@ export default function App() {
   useEffect(() => {
     if (!auth) return;
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth Failed:", error);
+        setAuthError(error.message);
+        setLoading(false);
+        // 사용자에게 명확한 에러 메시지 알림
+        if (error.code === 'auth/operation-not-allowed') {
+          alert("로그인 실패: Firebase 콘솔에서 '익명(Anonymous)' 로그인을 활성화해주세요.");
+        } else if (error.code === 'auth/unauthorized-domain') {
+           alert("도메인 권한 오류: 현재 웹사이트 주소(Vercel 도메인)를 Firebase 콘솔 > Authentication > Settings > Authorized Domains 에 추가해주세요.");
+        } else {
+          alert("로그인 오류가 발생했습니다: " + error.message);
+        }
       }
     };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (u) setUser(u);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -316,7 +333,21 @@ export default function App() {
   }, [projects]);
 
   if (!db) return <div className="p-10 text-center">Firebase 설정 필요</div>;
-  if (loading) return <div className="flex h-screen items-center justify-center">로딩중...</div>;
+  if (loading) return (
+    <div className="flex flex-col h-screen items-center justify-center space-y-4">
+      <div className="text-slate-500">시스템 로딩중...</div>
+      {authError && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg max-w-md text-sm whitespace-pre-line border border-red-200">
+          <strong>로그인 오류:</strong><br/>
+          {authError === 'auth/operation-not-allowed' 
+            ? "Firebase 콘솔에서 '익명 로그인'이 활성화되지 않았습니다."
+            : authError === 'auth/unauthorized-domain'
+            ? "Firebase 콘솔에서 현재 도메인을 승인해야 합니다."
+            : "인증 서비스에 연결할 수 없습니다."}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
