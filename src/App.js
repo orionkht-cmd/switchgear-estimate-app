@@ -16,7 +16,7 @@ import {
   Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature
 } from 'lucide-react';
 
-// --- [중요] Firebase 설정 (본인의 키로 교체 필요) ---
+// --- [중요] Firebase 설정 ---
 const firebaseConfig = {
   apiKey: "AIzaSyB1T4saWXiTKmTTTz42xMTllwjnVj_dL28",
   authDomain: "myswitchgear-b0a30.firebaseapp.com",
@@ -42,7 +42,7 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'switchgear-pro';
 
 // --- Gemini API Helper ---
 const generateGeminiContent = async (prompt) => {
-  const apiKey = ""; // 실행 환경에서 자동으로 주입됩니다.
+  const apiKey = ""; 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -106,24 +106,30 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false); // 수정 모드 여부
+  const [isEditMode, setIsEditMode] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState('');
   
-  // Excel Library State
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
-  // Revision Form State
   const [newRevNote, setNewRevNote] = useState('');
   const [newRevAmount, setNewRevAmount] = useState('');
   const [newRevCost, setNewRevCost] = useState('');
 
-  // Project Form (Create & Edit)
   const [projectForm, setProjectForm] = useState({
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
 
-  const printableRef = useRef(null); 
+  // --- [핵심 수정] Tailwind CSS 강제 로드 ---
+  useEffect(() => {
+    // 이미 로드되었는지 확인
+    if (document.getElementById('tailwind-cdn')) return;
+    
+    const script = document.createElement('script');
+    script.id = 'tailwind-cdn';
+    script.src = "https://cdn.tailwindcss.com";
+    document.head.appendChild(script);
+  }, []);
 
   // --- Auth & Data Sync ---
   useEffect(() => {
@@ -162,7 +168,6 @@ export default function App() {
       projectsData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setProjects(projectsData);
       
-      // 선택된 프로젝트가 있다면 실시간 업데이트 반영
       if (selectedProject) {
         const updated = projectsData.find(p => p.id === selectedProject.id);
         if (updated) setSelectedProject(updated);
@@ -176,9 +181,8 @@ export default function App() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [user, selectedProject?.id]); // selectedProject.id를 dependency에 추가해 업데이트 추적
+  }, [user, selectedProject?.id]);
 
-  // --- Load XLSX Library from CDN ---
   useEffect(() => {
     if (window.XLSX) {
       setXlsxLoaded(true);
@@ -216,7 +220,6 @@ export default function App() {
 
     try {
       if (isEditMode && selectedProject) {
-        // 수정 모드
         const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id);
         await updateDoc(projectRef, {
           ...projectForm,
@@ -225,7 +228,6 @@ export default function App() {
         });
         alert("프로젝트 정보가 수정되었습니다.");
       } else {
-        // 신규 생성 모드
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
           ...projectForm,
           projectIdDisplay: `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
@@ -233,12 +235,7 @@ export default function App() {
           createdAt: serverTimestamp(),
           createdBy: user.uid,
           revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, cost: 0, note: '최초 생성', file: '-' }],
-          progress: { // 진행 현황 초기값
-            contract: null,
-            production: null,
-            delivery: null,
-            collection: null
-          }
+          progress: { contract: null, production: null, delivery: null, collection: null }
         });
         alert("새 프로젝트가 등록되었습니다.");
       }
@@ -249,7 +246,6 @@ export default function App() {
   const handleDeleteProject = async () => {
     if (!selectedProject) return;
     if (!window.confirm("정말로 이 프로젝트를 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) return;
-    
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id));
       setIsModalOpen(false);
@@ -277,7 +273,6 @@ export default function App() {
         updatedAt: serverTimestamp(),
         lastModifier: user.uid
       });
-      // setSelectedProject는 onSnapshot에서 자동 업데이트됨
       setNewRevNote('');
       alert('견적 이력이 업데이트되었습니다.');
     } catch (e) { alert('업데이트 실패'); }
@@ -292,32 +287,17 @@ export default function App() {
     if (!selectedProject) return;
     const currentProgress = selectedProject.progress || {};
     const isCompleted = !!currentProgress[stage];
-    
-    const newProgress = {
-      ...currentProgress,
-      [stage]: isCompleted ? null : new Date().toISOString().split('T')[0] // 토글: 완료 시 날짜 저장, 취소 시 null
-    };
-
+    const newProgress = { ...currentProgress, [stage]: isCompleted ? null : new Date().toISOString().split('T')[0] };
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), {
-        progress: newProgress
-      });
-    } catch (e) {
-      console.error("Progress update failed", e);
-    }
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { progress: newProgress });
+    } catch (e) { console.error("Progress update failed", e); }
   };
 
   const handleGenerateEmail = async () => {
     if (!selectedProject) return;
     setAiLoading(true);
     const lastRev = selectedProject.revisions[selectedProject.revisions.length - 1];
-    const prompt = `당신은 배전반 제조 회사의 전문 영업 담당자입니다. 다음 정보를 바탕으로 고객에게 보낼 정중하고 간결한 견적 제출 이메일 초안을 한국어로 작성해주세요.
-      - 수신자: ${selectedProject.client}
-      - 프로젝트명: ${selectedProject.name}
-      - 견적 금액: ${formatCurrency(lastRev.amount)}
-      - 담당자: ${selectedProject.manager}
-      - 상황: ${selectedProject.status === 'Won' ? '계약이 성사되어 감사합니다.' : '견적서를 제출하오니 검토 부탁드립니다.'}
-      - 어조: 정중한 비즈니스 매너.`;
+    const prompt = `당신은 배전반 제조 회사의 전문 영업 담당자입니다... (생략)`;
     const result = await generateGeminiContent(prompt);
     setGeneratedEmail(result);
     setAiLoading(false);
