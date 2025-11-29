@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, collection, addDoc, updateDoc, 
+  getFirestore, collection, addDoc, updateDoc, deleteDoc,
   doc, onSnapshot, serverTimestamp, query, orderBy 
 } from 'firebase/firestore';
 import { 
@@ -12,7 +12,8 @@ import {
   LayoutDashboard, FolderKanban, FileText, Plus, History, 
   ChevronRight, Search, Save, X, CheckCircle2, TrendingUp, 
   Briefcase, User, Calculator, ScrollText, DollarSign,
-  Users, RefreshCw, Sparkles, Mail, Printer, FileSpreadsheet
+  Users, RefreshCw, Sparkles, Mail, Printer, FileSpreadsheet,
+  Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature
 } from 'lucide-react';
 
 // --- [중요] Firebase 설정 (본인의 키로 교체 필요) ---
@@ -98,12 +99,14 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('projects');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState(null); // 인증 에러 상태 추가
+  const [authError, setAuthError] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
   
   // UI State
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); // 수정 모드 여부
   const [aiLoading, setAiLoading] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState('');
   
@@ -115,12 +118,12 @@ export default function App() {
   const [newRevAmount, setNewRevAmount] = useState('');
   const [newRevCost, setNewRevCost] = useState('');
 
-  // New Project Form
-  const [newProjectForm, setNewProjectForm] = useState({
+  // Project Form (Create & Edit)
+  const [projectForm, setProjectForm] = useState({
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
 
-  const printableRef = useRef(null); // 프린트 영역 참조
+  const printableRef = useRef(null); 
 
   // --- Auth & Data Sync ---
   useEffect(() => {
@@ -136,13 +139,10 @@ export default function App() {
         console.error("Auth Failed:", error);
         setAuthError(error.message);
         setLoading(false);
-        // 사용자에게 명확한 에러 메시지 알림
         if (error.code === 'auth/operation-not-allowed') {
           alert("로그인 실패: Firebase 콘솔에서 '익명(Anonymous)' 로그인을 활성화해주세요.");
         } else if (error.code === 'auth/unauthorized-domain') {
-           alert("도메인 권한 오류: 현재 웹사이트 주소(Vercel 도메인)를 Firebase 콘솔 > Authentication > Settings > Authorized Domains 에 추가해주세요.");
-        } else {
-          alert("로그인 오류가 발생했습니다: " + error.message);
+           alert("도메인 권한 오류: Firebase 콘솔 > Authentication > Settings > Authorized Domains 에 현재 도메인을 추가해주세요.");
         }
       }
     };
@@ -157,19 +157,28 @@ export default function App() {
     if (!user || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'projects'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      setIsConnected(true);
       const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       projectsData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setProjects(projectsData);
+      
+      // 선택된 프로젝트가 있다면 실시간 업데이트 반영
+      if (selectedProject) {
+        const updated = projectsData.find(p => p.id === selectedProject.id);
+        if (updated) setSelectedProject(updated);
+      }
+      
       setLoading(false);
     }, (error) => {
+      setIsConnected(false);
       console.error("Firestore Error:", error);
-      alert("데이터를 불러오는데 실패했습니다.\nFirestore 보안 규칙(Rules)을 확인해주세요.\n에러: " + error.message);
+      alert("데이터 로드 실패: Firestore 보안 규칙(Rules)을 확인해주세요.");
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, selectedProject?.id]); // selectedProject.id를 dependency에 추가해 업데이트 추적
 
-  // --- Load XLSX Library from CDN (No npm install needed) ---
+  // --- Load XLSX Library from CDN ---
   useEffect(() => {
     if (window.XLSX) {
       setXlsxLoaded(true);
@@ -182,21 +191,73 @@ export default function App() {
   }, []);
 
   // --- Handlers ---
-  const handleCreateProject = async () => {
-    if (!newProjectForm.name || !newProjectForm.client) return alert('필수 입력 항목이 비어있습니다.');
+  const handleOpenCreateModal = () => {
+    setProjectForm({ name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약' });
+    setIsEditMode(false);
+    setIsNewProjectModalOpen(true);
+  };
+
+  const handleOpenEditModal = () => {
+    if (!selectedProject) return;
+    setProjectForm({
+      name: selectedProject.name,
+      client: selectedProject.client,
+      manager: selectedProject.manager,
+      salesRep: selectedProject.salesRep,
+      contractMethod: selectedProject.contractMethod
+    });
+    setIsEditMode(true);
+    setIsNewProjectModalOpen(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!projectForm.name || !projectForm.client) return alert('필수 입력 항목이 비어있습니다.');
     if (!user) return;
+
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
-        ...newProjectForm,
-        projectIdDisplay: `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-        status: 'In Progress',
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, cost: 0, note: '최초 생성', file: '-' }]
-      });
+      if (isEditMode && selectedProject) {
+        // 수정 모드
+        const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id);
+        await updateDoc(projectRef, {
+          ...projectForm,
+          updatedAt: serverTimestamp(),
+          lastModifier: user.uid
+        });
+        alert("프로젝트 정보가 수정되었습니다.");
+      } else {
+        // 신규 생성 모드
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
+          ...projectForm,
+          projectIdDisplay: `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+          status: 'In Progress',
+          createdAt: serverTimestamp(),
+          createdBy: user.uid,
+          revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, cost: 0, note: '최초 생성', file: '-' }],
+          progress: { // 진행 현황 초기값
+            contract: null,
+            production: null,
+            delivery: null,
+            collection: null
+          }
+        });
+        alert("새 프로젝트가 등록되었습니다.");
+      }
       setIsNewProjectModalOpen(false);
-      setNewProjectForm({ name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약' });
-    } catch (e) { alert('오류가 발생했습니다.'); }
+    } catch (e) { alert('저장 중 오류가 발생했습니다: ' + e.message); }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!selectedProject) return;
+    if (!window.confirm("정말로 이 프로젝트를 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id));
+      setIsModalOpen(false);
+      setSelectedProject(null);
+      alert("프로젝트가 삭제되었습니다.");
+    } catch (e) {
+      alert("삭제 실패: " + e.message);
+    }
   };
 
   const handleAddRevision = async () => {
@@ -216,16 +277,34 @@ export default function App() {
         updatedAt: serverTimestamp(),
         lastModifier: user.uid
       });
-      setSelectedProject(prev => ({ ...prev, revisions: [...prev.revisions, newRev] }));
+      // setSelectedProject는 onSnapshot에서 자동 업데이트됨
       setNewRevNote('');
-      alert('업데이트 완료');
+      alert('견적 이력이 업데이트되었습니다.');
     } catch (e) { alert('업데이트 실패'); }
   };
 
   const handleStatusChange = async (status) => {
     if (!selectedProject) return;
     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { status });
-    setSelectedProject(prev => ({ ...prev, status }));
+  };
+
+  const handleProgressToggle = async (stage) => {
+    if (!selectedProject) return;
+    const currentProgress = selectedProject.progress || {};
+    const isCompleted = !!currentProgress[stage];
+    
+    const newProgress = {
+      ...currentProgress,
+      [stage]: isCompleted ? null : new Date().toISOString().split('T')[0] // 토글: 완료 시 날짜 저장, 취소 시 null
+    };
+
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), {
+        progress: newProgress
+      });
+    } catch (e) {
+      console.error("Progress update failed", e);
+    }
   };
 
   const handleGenerateEmail = async () => {
@@ -253,65 +332,33 @@ export default function App() {
     setAiLoading(false);
   };
 
-  // --- Print Handler ---
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
-  // --- Excel Handler (with Formulas) ---
   const handleExportExcel = () => {
     if (!window.XLSX || !selectedProject) return alert("엑셀 모듈 로딩 중입니다. 잠시 후 시도해주세요.");
-    
-    // 1. 데이터 구성
     const revisions = [...selectedProject.revisions].reverse();
     const wb = window.XLSX.utils.book_new();
-    
-    // 2. 헤더 및 데이터 생성
     const wsData = [
       ["견적 관리 카드"],
       [`프로젝트명: ${selectedProject.name}`],
       [`발주처: ${selectedProject.client}`, `담당자: ${selectedProject.manager}`],
-      [], // 빈 줄
-      ["Rev", "날짜", "수정 사유", "견적금액(VAT별도)", "실행원가", "이익금", "이익률(%)"] // 헤더
+      [],
+      ["Rev", "날짜", "수정 사유", "견적금액(VAT별도)", "실행원가", "이익금", "이익률(%)"]
     ];
-
-    // 3. 행 데이터 추가 (수식 포함)
     revisions.forEach((rev, index) => {
-      // 엑셀의 행 번호는 1부터 시작. 헤더가 5행에 있으므로 데이터는 6행부터 시작
-      // index 0 -> Excel Row 6
       const r = 6 + index; 
-      
       const row = [
-        rev.rev,
-        rev.date,
-        rev.note,
-        { t: 'n', v: rev.amount, z: '#,##0' }, // 숫자 포맷
+        rev.rev, rev.date, rev.note,
+        { t: 'n', v: rev.amount, z: '#,##0' },
         { t: 'n', v: rev.cost, z: '#,##0' },
-        // 수식: 금액 - 원가 (E열 - D열) -> F열
         { t: 'n', f: `D${r}-E${r}`, z: '#,##0' }, 
-        // 수식: 이익금 / 금액 (F열 / D열) -> G열
         { t: 'n', f: `IF(D${r}=0, 0, F${r}/D${r})`, z: '0.0%' }
       ];
       wsData.push(row);
     });
-
     const ws = window.XLSX.utils.aoa_to_sheet(wsData);
-
-    // 컬럼 너비 설정
-    ws['!cols'] = [
-      { wch: 5 },  // Rev
-      { wch: 12 }, // Date
-      { wch: 40 }, // Note
-      { wch: 15 }, // Amount
-      { wch: 15 }, // Cost
-      { wch: 15 }, // Profit
-      { wch: 10 }  // Margin
-    ];
-
-    // 워크북에 시트 추가
+    ws['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }];
     window.XLSX.utils.book_append_sheet(wb, ws, "견적 이력");
-
-    // 파일 다운로드
     window.XLSX.writeFile(wb, `${selectedProject.name}_견적현황.xlsx`);
   };
 
@@ -335,15 +382,10 @@ export default function App() {
   if (!db) return <div className="p-10 text-center">Firebase 설정 필요</div>;
   if (loading) return (
     <div className="flex flex-col h-screen items-center justify-center space-y-4">
-      <div className="text-slate-500">시스템 로딩중...</div>
+      <div className="text-slate-500 animate-pulse">시스템 연결 중...</div>
       {authError && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg max-w-md text-sm whitespace-pre-line border border-red-200">
-          <strong>로그인 오류:</strong><br/>
-          {authError === 'auth/operation-not-allowed' 
-            ? "Firebase 콘솔에서 '익명 로그인'이 활성화되지 않았습니다."
-            : authError === 'auth/unauthorized-domain'
-            ? "Firebase 콘솔에서 현재 도메인을 승인해야 합니다."
-            : "인증 서비스에 연결할 수 없습니다."}
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg max-w-md text-sm border border-red-200">
+          <strong>로그인 오류:</strong><br/>{authError}
         </div>
       )}
     </div>
@@ -351,7 +393,6 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
-      {/* 프린트용 스타일 (숨김 처리 등) */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -378,6 +419,15 @@ export default function App() {
               <FileText className="w-5 h-5" /> 프로젝트 대장
             </button>
           </nav>
+          {/* Connection Status Indicator */}
+          <div className="p-4 border-t border-slate-800">
+            <div className="flex items-center gap-2">
+              {isConnected ? <Wifi className="w-4 h-4 text-green-400" /> : <WifiOff className="w-4 h-4 text-red-400" />}
+              <span className={`text-xs ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                {isConnected ? '시스템 정상 연결' : '연결 끊김 (오프라인)'}
+              </span>
+            </div>
+          </div>
         </aside>
 
         {/* Main Content */}
@@ -386,7 +436,7 @@ export default function App() {
              <h1 className="font-bold text-lg flex items-center gap-2">
                배전반 견적 관리 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles className="w-3 h-3"/> AI On</span>
              </h1>
-             <button onClick={() => setIsNewProjectModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700">
+             <button onClick={handleOpenCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700">
                <Plus className="w-4 h-4" /> 프로젝트 등록
              </button>
           </header>
@@ -401,49 +451,90 @@ export default function App() {
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm border overflow-hidden animate-fade-in">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 border-b">
-                    <tr><th className="px-4 py-3">상태</th><th className="px-4 py-3">프로젝트명</th><th className="px-4 py-3">담당자</th><th className="px-4 py-3 text-right">최종 금액</th><th className="px-4 py-3 text-center">관리</th></tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {projects.map(p => {
-                      const lastRev = p.revisions?.[p.revisions.length - 1] || { amount: 0 };
-                      return (
-                        <tr key={p.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                          <td className="px-4 py-3">
-                            <div className="font-bold">{p.name}</div>
-                            <div className="text-xs text-slate-500">{p.client}</div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{p.salesRep} / {p.manager}</td>
-                          <td className="px-4 py-3 text-right font-bold">{formatCurrency(lastRev.amount)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setGeneratedEmail(''); }} className="text-blue-600 hover:underline">상세</button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                {projects.length > 0 ? (
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 border-b">
+                      <tr><th className="px-4 py-3">상태</th><th className="px-4 py-3">프로젝트명</th><th className="px-4 py-3">담당자</th><th className="px-4 py-3 text-right">최종 금액</th><th className="px-4 py-3 text-center">관리</th></tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {projects.map(p => {
+                        const lastRev = p.revisions?.[p.revisions.length - 1] || { amount: 0 };
+                        // 진행 단계 확인
+                        const progress = p.progress || {};
+                        const doneCount = ['contract', 'production', 'delivery', 'collection'].filter(k => !!progress[k]).length;
+                        
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                            <td className="px-4 py-3">
+                              <div className="font-bold">{p.name}</div>
+                              <div className="text-xs text-slate-500">{p.client}</div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{p.salesRep} / {p.manager}</td>
+                            <td className="px-4 py-3 text-right font-bold">{formatCurrency(lastRev.amount)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setGeneratedEmail(''); }} className="text-blue-600 hover:underline">상세</button>
+                              <span className="text-[10px] text-slate-400 block mt-1">{doneCount}/4 단계</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="p-10 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                      <FolderKanban className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">등록된 프로젝트가 없습니다</h3>
+                    <p className="text-slate-500 text-sm mb-4">우측 상단의 '프로젝트 등록' 버튼을 눌러<br/>첫 번째 견적 관리를 시작해보세요.</p>
+                    <button onClick={handleOpenCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
+                      첫 프로젝트 등록하기
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </main>
       </div>
 
-      {/* New Project Modal */}
+      {/* Create / Edit Project Modal */}
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold mb-4">신규 프로젝트</h3>
+            <h3 className="text-lg font-bold mb-4">{isEditMode ? '프로젝트 정보 수정' : '신규 프로젝트 등록'}</h3>
             <div className="space-y-3">
-              <input className="w-full border p-2 rounded" placeholder="프로젝트명" value={newProjectForm.name} onChange={e => setNewProjectForm({...newProjectForm, name: e.target.value})} />
-              <input className="w-full border p-2 rounded" placeholder="발주처" value={newProjectForm.client} onChange={e => setNewProjectForm({...newProjectForm, client: e.target.value})} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className="border p-2 rounded" placeholder="영업 담당" value={newProjectForm.salesRep} onChange={e => setNewProjectForm({...newProjectForm, salesRep: e.target.value})} />
-                <input className="border p-2 rounded" placeholder="설계/PM 담당" value={newProjectForm.manager} onChange={e => setNewProjectForm({...newProjectForm, manager: e.target.value})} />
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">프로젝트명</label>
+                <input className="w-full border p-2 rounded" placeholder="프로젝트명" value={projectForm.name} onChange={e => setProjectForm({...projectForm, name: e.target.value})} />
               </div>
-              <button onClick={handleCreateProject} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">등록</button>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">발주처 (고객사)</label>
+                <input className="w-full border p-2 rounded" placeholder="발주처" value={projectForm.client} onChange={e => setProjectForm({...projectForm, client: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">영업 담당</label>
+                  <input className="w-full border p-2 rounded" placeholder="영업 담당" value={projectForm.salesRep} onChange={e => setProjectForm({...projectForm, salesRep: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">설계/PM 담당</label>
+                  <input className="w-full border p-2 rounded" placeholder="설계/PM 담당" value={projectForm.manager} onChange={e => setProjectForm({...projectForm, manager: e.target.value})} />
+                </div>
+              </div>
+              <div>
+                 <label className="text-xs text-slate-500 block mb-1">계약 방법</label>
+                 <select className="w-full border p-2 rounded" value={projectForm.contractMethod} onChange={e => setProjectForm({...projectForm, contractMethod: e.target.value})}>
+                    <option value="수의계약">수의계약</option>
+                    <option value="지명경쟁">지명경쟁</option>
+                    <option value="일반경쟁">일반경쟁</option>
+                    <option value="기타">기타</option>
+                 </select>
+              </div>
+              <button onClick={handleSaveProject} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                {isEditMode ? '수정사항 저장' : '등록하기'}
+              </button>
               <button onClick={() => setIsNewProjectModalOpen(false)} className="w-full text-slate-500 py-2">취소</button>
             </div>
           </div>
@@ -453,7 +544,7 @@ export default function App() {
       {/* Detail Modal */}
       {isModalOpen && selectedProject && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:block print:bg-white print:static">
-          <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] print:h-auto print:w-full print:max-w-none flex flex-col shadow-2xl print:shadow-none print-area">
+          <div className="bg-white rounded-xl w-full max-w-5xl h-[90vh] print:h-auto print:w-full print:max-w-none flex flex-col shadow-2xl print:shadow-none print-area">
             {/* Header (Printable) */}
             <div className="p-4 border-b flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
                <div>
@@ -464,20 +555,18 @@ export default function App() {
                  <p className="text-xs text-slate-400 mt-1 print:block hidden">출력일: {new Date().toLocaleDateString()}</p>
                </div>
                
-               {/* Action Buttons (Hidden on Print) */}
                <div className="flex items-center gap-2 no-print">
-                 <button 
-                   onClick={handlePrint}
-                   className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200"
-                   title="프린트 출력"
-                 >
+                 <button onClick={handleOpenEditModal} className="p-2 hover:bg-blue-50 text-slate-600 rounded-lg" title="정보 수정">
+                   <Edit className="w-5 h-5 text-blue-600" />
+                 </button>
+                 <button onClick={handleDeleteProject} className="p-2 hover:bg-red-50 text-slate-600 rounded-lg" title="프로젝트 삭제">
+                   <Trash2 className="w-5 h-5 text-red-600" />
+                 </button>
+                 <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                 <button onClick={handlePrint} className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200">
                    <Printer className="w-4 h-4" /> <span className="hidden sm:inline">출력</span>
                  </button>
-                 <button 
-                   onClick={handleExportExcel}
-                   className="p-2 hover:bg-green-50 hover:text-green-700 hover:border-green-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200"
-                   title="엑셀 다운로드 (수식포함)"
-                 >
+                 <button onClick={handleExportExcel} className="p-2 hover:bg-green-50 hover:text-green-700 hover:border-green-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200">
                    <FileSpreadsheet className="w-4 h-4" /> <span className="hidden sm:inline">엑셀</span>
                  </button>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full">
@@ -485,9 +574,41 @@ export default function App() {
                  </button>
                </div>
             </div>
+
+            {/* Progress Bar Section (New Feature) */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200 no-print">
+              <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 ml-1">진행 현황 (클릭하여 상태 변경)</h4>
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { key: 'contract', label: '계약 완료', icon: FileSignature },
+                  { key: 'production', label: '제작 완료', icon: Hammer },
+                  { key: 'delivery', label: '납품 완료', icon: Truck },
+                  { key: 'collection', label: '수금 완료', icon: Coins }
+                ].map((step, idx) => {
+                  const progress = selectedProject.progress || {};
+                  const isDone = !!progress[step.key];
+                  const date = progress[step.key];
+                  
+                  return (
+                    <button 
+                      key={step.key}
+                      onClick={() => handleProgressToggle(step.key)}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        isDone 
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
+                          : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300 hover:text-blue-400'
+                      }`}
+                    >
+                      <step.icon className={`w-6 h-6 mb-2 ${isDone ? 'text-white' : 'text-slate-300'}`} />
+                      <span className="font-bold text-sm">{step.label}</span>
+                      <span className="text-[10px] mt-1 h-3">{date || '-'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row print:block print:overflow-visible">
-              {/* Left: History (Main Content for Print) */}
               <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30 print:bg-white print:border-none print:overflow-visible">
                 <h3 className="font-bold mb-4 flex items-center gap-2 print:text-lg print:border-b print:pb-2">
                   <History className="w-4 h-4"/> 견적 히스토리
@@ -511,42 +632,27 @@ export default function App() {
                            </div>
                          </div>
                       </div>
-                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded print:bg-white print:border print:border-slate-200 print:text-xs">
-                        {rev.note}
-                      </p>
+                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded print:bg-white print:border print:border-slate-200 print:text-xs">{rev.note}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Middle: AI Email (Hidden on Print) */}
               <div className="w-80 border-r border-slate-100 flex flex-col bg-white no-print">
                 <div className="p-4 border-b">
-                  <h3 className="font-bold text-sm flex items-center gap-2 text-slate-800">
-                    <Mail className="w-4 h-4 text-purple-600"/> 고객 이메일 작성
-                  </h3>
+                  <h3 className="font-bold text-sm flex items-center gap-2 text-slate-800"><Mail className="w-4 h-4 text-purple-600"/> 고객 이메일 작성</h3>
                 </div>
                 <div className="p-4 flex-1 overflow-auto flex flex-col">
                   {generatedEmail ? (
                     <div className="flex-1 flex flex-col">
-                      <textarea 
-                        className="w-full flex-1 border border-slate-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
-                        value={generatedEmail}
-                        onChange={(e) => setGeneratedEmail(e.target.value)}
-                      ></textarea>
-                      <button onClick={() => {navigator.clipboard.writeText(generatedEmail); alert('복사되었습니다');}} className="w-full bg-slate-100 text-slate-700 py-2 rounded text-sm hover:bg-slate-200">
-                        클립보드 복사
-                      </button>
+                      <textarea className="w-full flex-1 border border-slate-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2" value={generatedEmail} onChange={(e) => setGeneratedEmail(e.target.value)}></textarea>
+                      <button onClick={() => {navigator.clipboard.writeText(generatedEmail); alert('복사되었습니다');}} className="w-full bg-slate-100 text-slate-700 py-2 rounded text-sm hover:bg-slate-200">클립보드 복사</button>
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-4">
                       <Sparkles className="w-8 h-8 mb-2 text-purple-200" />
-                      <p className="text-xs mb-4">현재 견적 내용을 바탕으로<br/>고객 발송용 이메일 초안을<br/>AI가 작성해드립니다.</p>
-                      <button 
-                        onClick={handleGenerateEmail} 
-                        disabled={aiLoading}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-                      >
+                      <p className="text-xs mb-4">견적 내용을 바탕으로<br/>AI가 이메일 초안을 작성합니다.</p>
+                      <button onClick={handleGenerateEmail} disabled={aiLoading} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">
                         {aiLoading ? '작성 중...' : '✨ 이메일 초안 생성'}
                       </button>
                     </div>
@@ -554,59 +660,32 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right: Controls (Hidden on Print) */}
               <div className="w-80 p-6 bg-white overflow-auto no-print">
                 <div className="space-y-6">
                   <div>
                     <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase">Status</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {['In Progress', 'Won', 'Lost', 'Hold'].map(s => (
-                        <button key={s} onClick={() => handleStatusChange(s)} className={`text-xs py-2 rounded border ${selectedProject.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white hover:bg-slate-50'}`}>
-                          {s}
-                        </button>
+                        <button key={s} onClick={() => handleStatusChange(s)} className={`text-xs py-2 rounded border ${selectedProject.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white hover:bg-slate-50'}`}>{s}</button>
                       ))}
                     </div>
                   </div>
-
                   <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4">
-                    <h4 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
-                      <Plus className="w-4 h-4"/> 새 리비전 등록
-                    </h4>
+                    <h4 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2"><Plus className="w-4 h-4"/> 새 리비전 등록</h4>
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs text-slate-500 block mb-1">견적가</label>
-                          <input type="number" className="w-full border p-2 rounded text-sm" value={newRevAmount} onChange={e => setNewRevAmount(e.target.value)} placeholder="0"/>
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-500 block mb-1">실행원가</label>
-                          <input type="number" className="w-full border p-2 rounded text-sm" value={newRevCost} onChange={e => setNewRevCost(e.target.value)} placeholder="0"/>
-                        </div>
+                        <div><label className="text-xs text-slate-500 block mb-1">견적가</label><input type="number" className="w-full border p-2 rounded text-sm" value={newRevAmount} onChange={e => setNewRevAmount(e.target.value)} placeholder="0"/></div>
+                        <div><label className="text-xs text-slate-500 block mb-1">실행원가</label><input type="number" className="w-full border p-2 rounded text-sm" value={newRevCost} onChange={e => setNewRevCost(e.target.value)} placeholder="0"/></div>
                       </div>
-                      
                       <div>
-                        <label className="text-xs text-slate-500 block mb-1 flex justify-between">
-                          <span>수정 사유</span>
-                          <button onClick={handleRefineNote} disabled={aiLoading} className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-[10px]">
-                            <Sparkles className="w-3 h-3"/> {aiLoading ? '...' : 'AI 다듬기'}
-                          </button>
-                        </label>
-                        <textarea 
-                          className="w-full border p-2 rounded text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
-                          value={newRevNote} 
-                          onChange={e => setNewRevNote(e.target.value)}
-                          placeholder="예: 자재비 상승으로..."
-                        ></textarea>
+                        <label className="text-xs text-slate-500 block mb-1 flex justify-between"><span>수정 사유</span><button onClick={handleRefineNote} disabled={aiLoading} className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-[10px]"><Sparkles className="w-3 h-3"/> {aiLoading ? '...' : 'AI 다듬기'}</button></label>
+                        <textarea className="w-full border p-2 rounded text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={newRevNote} onChange={e => setNewRevNote(e.target.value)} placeholder="예: 자재비 상승으로..."></textarea>
                       </div>
-
-                      <button onClick={handleAddRevision} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">
-                        업데이트 저장
-                      </button>
+                      <button onClick={handleAddRevision} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">업데이트 저장</button>
                     </div>
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
