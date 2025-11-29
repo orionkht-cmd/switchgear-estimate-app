@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, updateDoc, 
@@ -12,11 +12,10 @@ import {
   LayoutDashboard, FolderKanban, FileText, Plus, History, 
   ChevronRight, Search, Save, X, CheckCircle2, TrendingUp, 
   Briefcase, User, Calculator, ScrollText, DollarSign,
-  Users, RefreshCw, Sparkles, Mail
+  Users, RefreshCw, Sparkles, Mail, Printer, FileSpreadsheet
 } from 'lucide-react';
 
 // --- [중요] Firebase 설정 (본인의 키로 교체 필요) ---
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyB1T4saWXiTKmTTTz42xMTllwjnVj_dL28",
   authDomain: "myswitchgear-b0a30.firebaseapp.com",
@@ -64,7 +63,7 @@ const generateGeminiContent = async (prompt) => {
 
 // --- Helper Functions ---
 const formatCurrency = (amount) => {
-  if (!amount) return '0원';
+  if (!amount) return '0';
   return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(amount);
 };
 
@@ -104,8 +103,11 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false); // AI 로딩 상태
-  const [generatedEmail, setGeneratedEmail] = useState(''); // 생성된 이메일
+  const [aiLoading, setAiLoading] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState('');
+  
+  // Excel Library State
+  const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   // Revision Form State
   const [newRevNote, setNewRevNote] = useState('');
@@ -116,6 +118,8 @@ export default function App() {
   const [newProjectForm, setNewProjectForm] = useState({
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
+
+  const printableRef = useRef(null); // 프린트 영역 참조
 
   // --- Auth & Data Sync ---
   useEffect(() => {
@@ -140,12 +144,27 @@ export default function App() {
       projectsData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setProjects(projectsData);
       setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      alert("데이터를 불러오는데 실패했습니다.\nFirestore 보안 규칙(Rules)을 확인해주세요.\n에러: " + error.message);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [user]);
 
-  // --- Handlers ---
+  // --- Load XLSX Library from CDN (No npm install needed) ---
+  useEffect(() => {
+    if (window.XLSX) {
+      setXlsxLoaded(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload = () => setXlsxLoaded(true);
+    document.body.appendChild(script);
+  }, []);
 
+  // --- Handlers ---
   const handleCreateProject = async () => {
     if (!newProjectForm.name || !newProjectForm.client) return alert('필수 입력 항목이 비어있습니다.');
     if (!user) return;
@@ -192,46 +211,91 @@ export default function App() {
     setSelectedProject(prev => ({ ...prev, status }));
   };
 
-  // --- Gemini AI Features ---
-
-  // 1. 이메일 초안 생성
   const handleGenerateEmail = async () => {
     if (!selectedProject) return;
     setAiLoading(true);
     const lastRev = selectedProject.revisions[selectedProject.revisions.length - 1];
-    
-    const prompt = `
-      당신은 배전반 제조 회사의 전문 영업 담당자입니다.
-      다음 정보를 바탕으로 고객에게 보낼 정중하고 간결한 견적 제출 이메일 초안을 한국어로 작성해주세요.
-      
-      - 수신자(고객사): ${selectedProject.client}
+    const prompt = `당신은 배전반 제조 회사의 전문 영업 담당자입니다. 다음 정보를 바탕으로 고객에게 보낼 정중하고 간결한 견적 제출 이메일 초안을 한국어로 작성해주세요.
+      - 수신자: ${selectedProject.client}
       - 프로젝트명: ${selectedProject.name}
       - 견적 금액: ${formatCurrency(lastRev.amount)}
-      - 담당자 이름: ${selectedProject.manager}
+      - 담당자: ${selectedProject.manager}
       - 상황: ${selectedProject.status === 'Won' ? '계약이 성사되어 감사합니다.' : '견적서를 제출하오니 검토 부탁드립니다.'}
-      - 어조: 매우 정중하고 비즈니스 매너를 갖춘 어조.
-    `;
-
+      - 어조: 정중한 비즈니스 매너.`;
     const result = await generateGeminiContent(prompt);
     setGeneratedEmail(result);
     setAiLoading(false);
   };
 
-  // 2. 수정 사유 다듬기
   const handleRefineNote = async () => {
-    if (!newRevNote) return alert("다듬을 내용을 먼저 간단히 입력해주세요 (예: '자재비 올라서 가격 올림')");
+    if (!newRevNote) return alert("다듬을 내용을 입력해주세요.");
     setAiLoading(true);
-    
-    const prompt = `
-      사용자가 입력한 투박한 견적 수정 사유를 보고서나 기록용으로 적합하게 전문적인 문장으로 다듬어주세요.
-      - 원래 입력: "${newRevNote}"
-      - 맥락: 배전반 견적 수정 내역 기록
-      - 출력: 다듬어진 문장 하나만 출력하세요. (따옴표 없이)
-    `;
-
+    const prompt = `사용자가 입력한 견적 수정 사유를 보고서용으로 다듬어주세요.\n- 입력: "${newRevNote}"\n- 출력: 문장 하나만.`;
     const result = await generateGeminiContent(prompt);
     setNewRevNote(result.trim());
     setAiLoading(false);
+  };
+
+  // --- Print Handler ---
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // --- Excel Handler (with Formulas) ---
+  const handleExportExcel = () => {
+    if (!window.XLSX || !selectedProject) return alert("엑셀 모듈 로딩 중입니다. 잠시 후 시도해주세요.");
+    
+    // 1. 데이터 구성
+    const revisions = [...selectedProject.revisions].reverse();
+    const wb = window.XLSX.utils.book_new();
+    
+    // 2. 헤더 및 데이터 생성
+    const wsData = [
+      ["견적 관리 카드"],
+      [`프로젝트명: ${selectedProject.name}`],
+      [`발주처: ${selectedProject.client}`, `담당자: ${selectedProject.manager}`],
+      [], // 빈 줄
+      ["Rev", "날짜", "수정 사유", "견적금액(VAT별도)", "실행원가", "이익금", "이익률(%)"] // 헤더
+    ];
+
+    // 3. 행 데이터 추가 (수식 포함)
+    revisions.forEach((rev, index) => {
+      // 엑셀의 행 번호는 1부터 시작. 헤더가 5행에 있으므로 데이터는 6행부터 시작
+      // index 0 -> Excel Row 6
+      const r = 6 + index; 
+      
+      const row = [
+        rev.rev,
+        rev.date,
+        rev.note,
+        { t: 'n', v: rev.amount, z: '#,##0' }, // 숫자 포맷
+        { t: 'n', v: rev.cost, z: '#,##0' },
+        // 수식: 금액 - 원가 (E열 - D열) -> F열
+        { t: 'n', f: `D${r}-E${r}`, z: '#,##0' }, 
+        // 수식: 이익금 / 금액 (F열 / D열) -> G열
+        { t: 'n', f: `IF(D${r}=0, 0, F${r}/D${r})`, z: '0.0%' }
+      ];
+      wsData.push(row);
+    });
+
+    const ws = window.XLSX.utils.aoa_to_sheet(wsData);
+
+    // 컬럼 너비 설정
+    ws['!cols'] = [
+      { wch: 5 },  // Rev
+      { wch: 12 }, // Date
+      { wch: 40 }, // Note
+      { wch: 15 }, // Amount
+      { wch: 15 }, // Cost
+      { wch: 15 }, // Profit
+      { wch: 10 }  // Margin
+    ];
+
+    // 워크북에 시트 추가
+    window.XLSX.utils.book_append_sheet(wb, ws, "견적 이력");
+
+    // 파일 다운로드
+    window.XLSX.writeFile(wb, `${selectedProject.name}_견적현황.xlsx`);
   };
 
   // --- Stats ---
@@ -254,12 +318,21 @@ export default function App() {
   if (!db) return <div className="p-10 text-center">Firebase 설정 필요</div>;
   if (loading) return <div className="flex h-screen items-center justify-center">로딩중...</div>;
 
-  // --- Render ---
   return (
     <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+      {/* 프린트용 스타일 (숨김 처리 등) */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: absolute; left: 0; top: 0; width: 100%; height: auto; background: white; padding: 20px; z-index: 9999; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
       <div className="flex h-full overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-slate-900 text-white hidden lg:flex flex-col z-20">
+        <aside className="w-64 bg-slate-900 text-white hidden lg:flex flex-col z-20 no-print">
           <div className="p-6 border-b border-slate-800">
             <h1 className="text-xl font-bold flex items-center gap-2">
               <RefreshCw className="text-green-400" /> Team<span className="text-green-400">Sync</span>
@@ -278,7 +351,7 @@ export default function App() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col h-full overflow-hidden">
-          <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
+          <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 no-print">
              <h1 className="font-bold text-lg flex items-center gap-2">
                배전반 견적 관리 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Sparkles className="w-3 h-3"/> AI On</span>
              </h1>
@@ -346,51 +419,77 @@ export default function App() {
         </div>
       )}
 
-      {/* Detail Modal with AI Features */}
+      {/* Detail Modal */}
       {isModalOpen && selectedProject && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl">
-            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:block print:bg-white print:static">
+          <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] print:h-auto print:w-full print:max-w-none flex flex-col shadow-2xl print:shadow-none print-area">
+            {/* Header (Printable) */}
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
                <div>
                  <h2 className="font-bold text-xl flex items-center gap-2">
-                   {selectedProject.name} <StatusBadge status={selectedProject.status} />
+                   {selectedProject.name} <span className="no-print"><StatusBadge status={selectedProject.status} /></span>
                  </h2>
                  <p className="text-sm text-slate-500">{selectedProject.projectIdDisplay} • {selectedProject.client}</p>
+                 <p className="text-xs text-slate-400 mt-1 print:block hidden">출력일: {new Date().toLocaleDateString()}</p>
                </div>
-               <button onClick={() => setIsModalOpen(false)}><X className="text-slate-400 hover:text-slate-600"/></button>
+               
+               {/* Action Buttons (Hidden on Print) */}
+               <div className="flex items-center gap-2 no-print">
+                 <button 
+                   onClick={handlePrint}
+                   className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200"
+                   title="프린트 출력"
+                 >
+                   <Printer className="w-4 h-4" /> <span className="hidden sm:inline">출력</span>
+                 </button>
+                 <button 
+                   onClick={handleExportExcel}
+                   className="p-2 hover:bg-green-50 hover:text-green-700 hover:border-green-200 rounded-lg text-slate-600 flex items-center gap-1 text-sm border border-slate-200"
+                   title="엑셀 다운로드 (수식포함)"
+                 >
+                   <FileSpreadsheet className="w-4 h-4" /> <span className="hidden sm:inline">엑셀</span>
+                 </button>
+                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full">
+                   <X className="text-slate-400 hover:text-slate-600"/>
+                 </button>
+               </div>
             </div>
             
-            <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-              {/* Left: History */}
-              <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><History className="w-4 h-4"/> 견적 히스토리</h3>
-                <div className="space-y-4">
+            <div className="flex-1 overflow-hidden flex flex-col md:flex-row print:block print:overflow-visible">
+              {/* Left: History (Main Content for Print) */}
+              <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30 print:bg-white print:border-none print:overflow-visible">
+                <h3 className="font-bold mb-4 flex items-center gap-2 print:text-lg print:border-b print:pb-2">
+                  <History className="w-4 h-4"/> 견적 히스토리
+                </h3>
+                <div className="space-y-4 print:space-y-6">
                   {[...selectedProject.revisions].reverse().map((rev, idx) => (
-                    <div key={idx} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+                    <div key={idx} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm print:shadow-none print:border-slate-800 print:break-inside-avoid">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs">Rev.{rev.rev}</span>
-                        <span className="text-xs text-slate-400">{rev.date}</span>
+                        <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs print:text-black print:bg-white print:border print:border-black">Rev.{rev.rev}</span>
+                        <span className="text-xs text-slate-400 print:text-slate-600">{rev.date}</span>
                       </div>
                       <div className="flex justify-between items-end mb-3">
                          <div>
-                           <div className="text-xs text-slate-500">견적가</div>
+                           <div className="text-xs text-slate-500">견적가 (VAT별도)</div>
                            <div className="font-bold text-lg">{formatCurrency(rev.amount)}</div>
                          </div>
                          <div className="text-right">
-                           <div className="text-xs text-slate-500">이익률</div>
-                           <div className={`font-bold ${calculateMargin(rev.amount, rev.cost) < 10 ? 'text-red-500' : 'text-green-600'}`}>
-                             {calculateMargin(rev.amount, rev.cost)}%
+                           <div className="text-xs text-slate-500">실행원가 / 이익률</div>
+                           <div className={`font-bold text-sm ${calculateMargin(rev.amount, rev.cost) < 10 ? 'text-red-500' : 'text-green-600'} print:text-black`}>
+                             {formatCurrency(rev.cost)} / {calculateMargin(rev.amount, rev.cost)}%
                            </div>
                          </div>
                       </div>
-                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded">{rev.note}</p>
+                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded print:bg-white print:border print:border-slate-200 print:text-xs">
+                        {rev.note}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Middle: AI Email Generator */}
-              <div className="w-80 border-r border-slate-100 flex flex-col bg-white">
+              {/* Middle: AI Email (Hidden on Print) */}
+              <div className="w-80 border-r border-slate-100 flex flex-col bg-white no-print">
                 <div className="p-4 border-b">
                   <h3 className="font-bold text-sm flex items-center gap-2 text-slate-800">
                     <Mail className="w-4 h-4 text-purple-600"/> 고객 이메일 작성
@@ -424,8 +523,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right: Controls */}
-              <div className="w-80 p-6 bg-white overflow-auto">
+              {/* Right: Controls (Hidden on Print) */}
+              <div className="w-80 p-6 bg-white overflow-auto no-print">
                 <div className="space-y-6">
                   <div>
                     <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase">Status</h4>
