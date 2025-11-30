@@ -14,7 +14,7 @@ import {
   Briefcase, User, Calculator, ScrollText, DollarSign,
   Users, RefreshCw, Sparkles, Printer, FileSpreadsheet,
   Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature,
-  Lightbulb
+  Lightbulb, Edit2
 } from 'lucide-react';
 
 // --- [중요] Firebase 설정 ---
@@ -112,12 +112,18 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiAnalysisResult, setAiAnalysisResult] = useState(''); // AI 분석 결과 저장
+  const [aiAnalysisResult, setAiAnalysisResult] = useState('');
   
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
+  // Revision Add State
   const [newRevNote, setNewRevNote] = useState('');
   const [newRevAmount, setNewRevAmount] = useState('');
+  
+  // Revision Edit State (히스토리 수정용)
+  const [editingRevIndex, setEditingRevIndex] = useState(null);
+  const [editRevData, setEditRevData] = useState({ amount: '', note: '' });
+
   const [finalCostInput, setFinalCostInput] = useState(''); 
 
   const [projectForm, setProjectForm] = useState({
@@ -175,7 +181,7 @@ export default function App() {
         const updated = projectsData.find(p => p.id === selectedProject.id);
         if (updated) {
           setSelectedProject(updated);
-          if (updated.finalCost) setFinalCostInput(updated.finalCost);
+          if (updated.finalCost && !finalCostInput) setFinalCostInput(updated.finalCost);
         }
       }
       
@@ -289,6 +295,50 @@ export default function App() {
     } catch (e) { alert('업데이트 실패'); }
   };
 
+  // --- Revision Edit Handlers ---
+  const handleEditRevision = (index, rev) => {
+    setEditingRevIndex(index);
+    setEditRevData({ amount: rev.amount, note: rev.note });
+  };
+
+  const handleSaveEditedRevision = async (index) => {
+    if (!selectedProject) return;
+    const updatedRevisions = [...selectedProject.revisions];
+    
+    // index는 화면에 보여지는 역순 리스트의 index가 아니라 원본 배열의 index여야 함
+    // 하지만 map에서 원본 index를 넘겨주도록 처리해야 함.
+    // 여기서는 map을 돌릴때 [...selectedProject.revisions].reverse()를 하므로 index가 뒤집힘
+    // 따라서 원본 index를 찾아야 함.
+    // 간단하게 하기 위해 map에서 원본 item을 직접 참조하지 않고, UI 렌더링 시 idx를 사용함.
+    // selectedProject.revisions의 길이 - 1 - UI index = 원본 index
+    
+    const realIndex = selectedProject.revisions.length - 1 - index;
+
+    updatedRevisions[realIndex] = {
+      ...updatedRevisions[realIndex],
+      amount: parseInt(editRevData.amount),
+      note: editRevData.note,
+      updatedAt: new Date().toISOString() // 수정 기록 남김
+    };
+
+    try {
+      const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id);
+      await updateDoc(projectRef, {
+        revisions: updatedRevisions,
+        lastModifier: user.uid
+      });
+      setEditingRevIndex(null);
+      alert('수정되었습니다.');
+    } catch (e) {
+      alert('수정 실패: ' + e.message);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRevIndex(null);
+    setEditRevData({ amount: '', note: '' });
+  };
+
   const handleStatusChange = async (status) => {
     if (!selectedProject) return;
     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { status });
@@ -325,7 +375,6 @@ export default function App() {
     setAiLoading(false);
   };
 
-  // New Feature: AI Project Analysis
   const handleAnalyzeProject = async () => {
     if (!selectedProject) return;
     setAiLoading(true);
@@ -647,29 +696,76 @@ export default function App() {
                   <History className="w-4 h-4"/> 견적 히스토리 (History)
                 </h3>
                 <div className="space-y-4 print:space-y-6">
-                  {[...selectedProject.revisions].reverse().map((rev, idx) => (
-                    <div key={idx} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm print:shadow-none print:border-slate-800 print:break-inside-avoid">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs print:text-black print:bg-white print:border print:border-black">Rev.{rev.rev}</span>
-                        <span className="text-xs text-slate-400 print:text-slate-600">{rev.date}</span>
+                  {[...selectedProject.revisions].reverse().map((rev, idx) => {
+                    const isEditing = editingRevIndex === idx;
+                    
+                    return (
+                      <div key={idx} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm print:shadow-none print:border-slate-800 print:break-inside-avoid relative group">
+                        
+                        {/* Edit Button (Visible only on hover, not in print) */}
+                        {!isEditing && (
+                          <button 
+                            onClick={() => handleEditRevision(idx, rev)}
+                            className="absolute top-3 right-3 text-slate-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                            title="내용 수정"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs print:text-black print:bg-white print:border print:border-black">Rev.{rev.rev}</span>
+                          <span className="text-xs text-slate-400 print:text-slate-600">{rev.date}</span>
+                        </div>
+
+                        {isEditing ? (
+                          // Edit Mode
+                          <div className="space-y-2 mt-2 bg-blue-50 p-2 rounded-lg border border-blue-100">
+                            <div>
+                              <label className="text-[10px] text-blue-800 block mb-1">금액 수정</label>
+                              <input 
+                                type="number" 
+                                className="w-full p-1 text-sm border rounded"
+                                value={editRevData.amount}
+                                onChange={(e) => setEditRevData({...editRevData, amount: e.target.value})}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-blue-800 block mb-1">사유 수정</label>
+                              <textarea 
+                                className="w-full p-1 text-sm border rounded h-16 resize-none"
+                                value={editRevData.note}
+                                onChange={(e) => setEditRevData({...editRevData, note: e.target.value})}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button onClick={handleCancelEdit} className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1">취소</button>
+                              <button onClick={() => handleSaveEditedRevision(idx)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">저장</button>
+                            </div>
+                          </div>
+                        ) : (
+                          // View Mode
+                          <>
+                            <div className="flex justify-between items-end mb-3">
+                               <div>
+                                 <div className="text-xs text-slate-500">견적가 (VAT포함)</div>
+                                 <div className="font-bold text-lg">{formatCurrency(rev.amount)}</div>
+                               </div>
+                               {selectedProject.finalCost > 0 && (
+                                 <div className="text-right">
+                                   <div className="text-xs text-slate-500">예상 이익률</div>
+                                   <div className={`font-bold text-sm ${calculateMargin(rev.amount, selectedProject.finalCost) < 10 ? 'text-red-500' : 'text-green-600'} print:text-black`}>
+                                     {calculateMargin(rev.amount, selectedProject.finalCost)}%
+                                   </div>
+                                 </div>
+                               )}
+                            </div>
+                            <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded print:bg-white print:border print:border-slate-200 print:text-xs whitespace-pre-wrap">{rev.note}</p>
+                          </>
+                        )}
                       </div>
-                      <div className="flex justify-between items-end mb-3">
-                         <div>
-                           <div className="text-xs text-slate-500">견적가 (VAT포함)</div>
-                           <div className="font-bold text-lg">{formatCurrency(rev.amount)}</div>
-                         </div>
-                         {selectedProject.finalCost > 0 && (
-                           <div className="text-right">
-                             <div className="text-xs text-slate-500">예상 이익률</div>
-                             <div className={`font-bold text-sm ${calculateMargin(rev.amount, selectedProject.finalCost) < 10 ? 'text-red-500' : 'text-green-600'} print:text-black`}>
-                               {calculateMargin(rev.amount, selectedProject.finalCost)}%
-                             </div>
-                           </div>
-                         )}
-                      </div>
-                      <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded print:bg-white print:border print:border-slate-200 print:text-xs whitespace-pre-wrap">{rev.note}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
