@@ -121,6 +121,7 @@ export default function App() {
   const [finalCostInput, setFinalCostInput] = useState(''); 
 
   const [projectForm, setProjectForm] = useState({
+    projectIdDisplay: '', // 프로젝트 번호 직접 입력 필드 추가
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
 
@@ -202,7 +203,12 @@ export default function App() {
 
   // --- Handlers ---
   const handleOpenCreateModal = () => {
-    setProjectForm({ name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약' });
+    // 신규 생성 시 기본 프로젝트 번호 자동 생성 (수정 가능)
+    const defaultId = `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    setProjectForm({ 
+      projectIdDisplay: defaultId, 
+      name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약' 
+    });
     setIsEditMode(false);
     setIsNewProjectModalOpen(true);
   };
@@ -210,6 +216,7 @@ export default function App() {
   const handleOpenEditModal = () => {
     if (!selectedProject) return;
     setProjectForm({
+      projectIdDisplay: selectedProject.projectIdDisplay, // 기존 번호 불러오기
       name: selectedProject.name,
       client: selectedProject.client,
       manager: selectedProject.manager,
@@ -235,8 +242,7 @@ export default function App() {
         alert("프로젝트 정보가 수정되었습니다.");
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
-          ...projectForm,
-          projectIdDisplay: `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+          ...projectForm, // 여기에 projectIdDisplay가 포함됨
           status: '진행중', // 한글 기본값
           finalCost: 0, // 실행원가 초기값
           createdAt: serverTimestamp(),
@@ -504,6 +510,10 @@ export default function App() {
             <h3 className="text-lg font-bold mb-4">{isEditMode ? '프로젝트 정보 수정' : '신규 프로젝트 등록'}</h3>
             <div className="space-y-3">
               <div>
+                <label className="text-xs text-slate-500 block mb-1">프로젝트 번호 (자동생성/수정가능)</label>
+                <input className="w-full border p-2 rounded bg-slate-50" placeholder="프로젝트 번호" value={projectForm.projectIdDisplay} onChange={e => setProjectForm({...projectForm, projectIdDisplay: e.target.value})} />
+              </div>
+              <div>
                 <label className="text-xs text-slate-500 block mb-1">프로젝트명</label>
                 <input className="w-full border p-2 rounded" placeholder="프로젝트명" value={projectForm.name} onChange={e => setProjectForm({...projectForm, name: e.target.value})} />
               </div>
@@ -527,6 +537,8 @@ export default function App() {
                     <option value="수의계약">수의계약</option>
                     <option value="지명경쟁">지명경쟁</option>
                     <option value="일반경쟁">일반경쟁</option>
+                    <option value="마스(MAS)">마스(MAS)</option>
+                    <option value="3자단가">3자단가</option>
                     <option value="기타">기타</option>
                  </select>
               </div>
