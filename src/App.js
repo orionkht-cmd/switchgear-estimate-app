@@ -12,7 +12,7 @@ import {
   LayoutDashboard, FolderKanban, FileText, Plus, History, 
   ChevronRight, Search, Save, X, CheckCircle2, TrendingUp, 
   Briefcase, User, Calculator, ScrollText, DollarSign,
-  Users, RefreshCw, Sparkles, Mail, Printer, FileSpreadsheet,
+  Users, RefreshCw, Sparkles, Printer, FileSpreadsheet,
   Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature
 } from 'lucide-react';
 
@@ -40,7 +40,7 @@ try {
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'switchgear-pro';
 
-// --- Gemini API Helper ---
+// --- Gemini API Helper (사유 다듬기용) ---
 const generateGeminiContent = async (prompt) => {
   const apiKey = ""; 
   try {
@@ -73,22 +73,26 @@ const calculateMargin = (amount, cost) => {
   return ((amount - cost) / amount * 100).toFixed(1);
 };
 
+// Status 한글화
 const StatusBadge = ({ status }) => {
   const styles = {
-    'In Progress': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Won': 'bg-green-100 text-green-800 border-green-200',
-    'Lost': 'bg-red-100 text-red-800 border-red-200',
-    'Hold': 'bg-gray-100 text-gray-800 border-gray-200',
+    '진행중': 'bg-blue-100 text-blue-800 border-blue-200',
+    '수주': 'bg-green-100 text-green-800 border-green-200',
+    '실주': 'bg-red-100 text-red-800 border-red-200',
+    '보류': 'bg-gray-100 text-gray-800 border-gray-200',
   };
-  const labels = {
+  
+  // 기존 영어 데이터 호환용 매핑
+  const label = {
     'In Progress': '진행중',
     'Won': '수주',
     'Lost': '실주',
-    'Hold': '보류',
-  };
+    'Hold': '보류'
+  }[status] || status;
+
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${styles[status] || styles['Hold']}`}>
-      {labels[status]}
+    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${styles[label] || styles['보류']}`}>
+      {label}
     </span>
   );
 };
@@ -108,23 +112,21 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [generatedEmail, setGeneratedEmail] = useState('');
   
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   const [newRevNote, setNewRevNote] = useState('');
   const [newRevAmount, setNewRevAmount] = useState('');
-  const [newRevCost, setNewRevCost] = useState('');
+  // 실행원가는 리비전에서 제외되고 별도 관리됨
+  const [finalCostInput, setFinalCostInput] = useState(''); 
 
   const [projectForm, setProjectForm] = useState({
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
 
-  // --- [핵심 수정] Tailwind CSS 강제 로드 ---
+  // --- Tailwind CSS 강제 로드 ---
   useEffect(() => {
-    // 이미 로드되었는지 확인
     if (document.getElementById('tailwind-cdn')) return;
-    
     const script = document.createElement('script');
     script.id = 'tailwind-cdn';
     script.src = "https://cdn.tailwindcss.com";
@@ -170,7 +172,11 @@ export default function App() {
       
       if (selectedProject) {
         const updated = projectsData.find(p => p.id === selectedProject.id);
-        if (updated) setSelectedProject(updated);
+        if (updated) {
+          setSelectedProject(updated);
+          // 모달이 열려있을 때 최신 실행원가 반영
+          if (updated.finalCost) setFinalCostInput(updated.finalCost);
+        }
       }
       
       setLoading(false);
@@ -231,10 +237,11 @@ export default function App() {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
           ...projectForm,
           projectIdDisplay: `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          status: 'In Progress',
+          status: '진행중', // 한글 기본값
+          finalCost: 0, // 실행원가 초기값
           createdAt: serverTimestamp(),
           createdBy: user.uid,
-          revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, cost: 0, note: '최초 생성', file: '-' }],
+          revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, note: '최초 생성', file: '-' }],
           progress: { contract: null, production: null, delivery: null, collection: null }
         });
         alert("새 프로젝트가 등록되었습니다.");
@@ -257,12 +264,12 @@ export default function App() {
   };
 
   const handleAddRevision = async () => {
-    if (!newRevAmount || !newRevCost || !selectedProject) return;
+    if (!newRevAmount || !selectedProject) return;
     const newRev = {
       rev: selectedProject.revisions.length,
       date: new Date().toISOString().split('T')[0],
       amount: parseInt(newRevAmount),
-      cost: parseInt(newRevCost),
+      // cost 제거됨
       note: newRevNote || '정기 수정',
       file: `EST_Rev${selectedProject.revisions.length}.xlsx`
     };
@@ -274,6 +281,7 @@ export default function App() {
         lastModifier: user.uid
       });
       setNewRevNote('');
+      setNewRevAmount('');
       alert('견적 이력이 업데이트되었습니다.');
     } catch (e) { alert('업데이트 실패'); }
   };
@@ -281,6 +289,16 @@ export default function App() {
   const handleStatusChange = async (status) => {
     if (!selectedProject) return;
     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { status });
+  };
+
+  const handleUpdateFinalCost = async () => {
+    if (!selectedProject) return;
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { 
+        finalCost: parseInt(finalCostInput || 0)
+      });
+      alert("실행원가가 저장되었습니다.");
+    } catch (e) { alert('원가 저장 실패'); }
   };
 
   const handleProgressToggle = async (stage) => {
@@ -291,16 +309,6 @@ export default function App() {
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', selectedProject.id), { progress: newProgress });
     } catch (e) { console.error("Progress update failed", e); }
-  };
-
-  const handleGenerateEmail = async () => {
-    if (!selectedProject) return;
-    setAiLoading(true);
-    const lastRev = selectedProject.revisions[selectedProject.revisions.length - 1];
-    const prompt = `당신은 배전반 제조 회사의 전문 영업 담당자입니다... (생략)`;
-    const result = await generateGeminiContent(prompt);
-    setGeneratedEmail(result);
-    setAiLoading(false);
   };
 
   const handleRefineNote = async () => {
@@ -322,22 +330,28 @@ export default function App() {
       ["견적 관리 카드"],
       [`프로젝트명: ${selectedProject.name}`],
       [`발주처: ${selectedProject.client}`, `담당자: ${selectedProject.manager}`],
+      [`최종 실행원가: ${selectedProject.finalCost || 0} (VAT포함)`],
       [],
-      ["Rev", "날짜", "수정 사유", "견적금액(VAT별도)", "실행원가", "이익금", "이익률(%)"]
+      ["Rev", "날짜", "수정 사유", "견적금액(VAT포함)", "이익금", "이익률(%)"]
     ];
+    
+    // 원가 가져오기 (전역)
+    const cost = selectedProject.finalCost || 0;
+
     revisions.forEach((rev, index) => {
-      const r = 6 + index; 
+      const r = 7 + index; // 데이터 시작 행
       const row = [
         rev.rev, rev.date, rev.note,
         { t: 'n', v: rev.amount, z: '#,##0' },
-        { t: 'n', v: rev.cost, z: '#,##0' },
-        { t: 'n', f: `D${r}-E${r}`, z: '#,##0' }, 
-        { t: 'n', f: `IF(D${r}=0, 0, F${r}/D${r})`, z: '0.0%' }
+        // 이익금 = 매출 - 원가 (단, 원가는 고정값이므로 직접 계산 혹은 수식)
+        { t: 'n', v: rev.amount - cost, z: '#,##0' }, 
+        // 이익률
+        { t: 'n', f: `IF(D${r}=0, 0, E${r}/D${r})`, z: '0.0%' }
       ];
       wsData.push(row);
     });
     const ws = window.XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 10 }];
     window.XLSX.utils.book_append_sheet(wb, ws, "견적 이력");
     window.XLSX.writeFile(wb, `${selectedProject.name}_견적현황.xlsx`);
   };
@@ -345,14 +359,18 @@ export default function App() {
   // --- Stats ---
   const stats = useMemo(() => {
     const total = projects.length;
-    const ongoing = projects.filter(p => p.status === 'In Progress').length;
-    const won = projects.filter(p => p.status === 'Won').length;
+    // 한글 상태값으로 필터링
+    const ongoing = projects.filter(p => p.status === '진행중' || p.status === 'In Progress').length;
+    const won = projects.filter(p => p.status === '수주' || p.status === 'Won').length;
+    
     let totalWonAmount = 0, totalWonProfit = 0;
     projects.forEach(p => {
-      if (p.status === 'Won' && p.revisions?.length > 0) {
-        const lastRev = p.revisions[p.revisions.length - 1];
-        totalWonAmount += (lastRev.amount || 0);
-        totalWonProfit += ((lastRev.amount || 0) - (lastRev.cost || 0));
+      if (p.status === '수주' || p.status === 'Won') {
+        const lastRev = p.revisions?.[p.revisions.length - 1];
+        if (lastRev) {
+          totalWonAmount += (lastRev.amount || 0);
+          totalWonProfit += ((lastRev.amount || 0) - (p.finalCost || 0));
+        }
       }
     });
     const avgMargin = totalWonAmount > 0 ? ((totalWonProfit / totalWonAmount) * 100).toFixed(1) : 0;
@@ -434,7 +452,7 @@ export default function App() {
                 {projects.length > 0 ? (
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b">
-                      <tr><th className="px-4 py-3">상태</th><th className="px-4 py-3">프로젝트명</th><th className="px-4 py-3">담당자</th><th className="px-4 py-3 text-right">최종 금액</th><th className="px-4 py-3 text-center">관리</th></tr>
+                      <tr><th className="px-4 py-3">상태</th><th className="px-4 py-3">프로젝트명</th><th className="px-4 py-3">담당자</th><th className="px-4 py-3 text-right">최종 금액(VAT포함)</th><th className="px-4 py-3 text-center">관리</th></tr>
                     </thead>
                     <tbody className="divide-y">
                       {projects.map(p => {
@@ -453,7 +471,7 @@ export default function App() {
                             <td className="px-4 py-3 text-slate-600">{p.salesRep} / {p.manager}</td>
                             <td className="px-4 py-3 text-right font-bold">{formatCurrency(lastRev.amount)}</td>
                             <td className="px-4 py-3 text-center">
-                              <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setGeneratedEmail(''); }} className="text-blue-600 hover:underline">상세</button>
+                              <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setFinalCostInput(p.finalCost || 0); }} className="text-blue-600 hover:underline">상세</button>
                               <span className="text-[10px] text-slate-400 block mt-1">{doneCount}/4 단계</span>
                             </td>
                           </tr>
@@ -524,7 +542,7 @@ export default function App() {
       {/* Detail Modal */}
       {isModalOpen && selectedProject && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:block print:bg-white print:static">
-          <div className="bg-white rounded-xl w-full max-w-5xl h-[90vh] print:h-auto print:w-full print:max-w-none flex flex-col shadow-2xl print:shadow-none print-area">
+          <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] print:h-auto print:w-full print:max-w-none flex flex-col shadow-2xl print:shadow-none print-area">
             {/* Header (Printable) */}
             <div className="p-4 border-b flex justify-between items-center bg-slate-50 print:bg-white print:border-b-2">
                <div>
@@ -555,7 +573,7 @@ export default function App() {
                </div>
             </div>
 
-            {/* Progress Bar Section (New Feature) */}
+            {/* Progress Bar Section */}
             <div className="p-4 bg-slate-50 border-b border-slate-200 no-print">
               <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 ml-1">진행 현황 (클릭하여 상태 변경)</h4>
               <div className="grid grid-cols-4 gap-4">
@@ -589,9 +607,11 @@ export default function App() {
             </div>
             
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row print:block print:overflow-visible">
+              
+              {/* Left: History (Expanded - No Email Section) */}
               <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30 print:bg-white print:border-none print:overflow-visible">
                 <h3 className="font-bold mb-4 flex items-center gap-2 print:text-lg print:border-b print:pb-2">
-                  <History className="w-4 h-4"/> 견적 히스토리
+                  <History className="w-4 h-4"/> 견적 히스토리 (History)
                 </h3>
                 <div className="space-y-4 print:space-y-6">
                   {[...selectedProject.revisions].reverse().map((rev, idx) => (
@@ -602,69 +622,80 @@ export default function App() {
                       </div>
                       <div className="flex justify-between items-end mb-3">
                          <div>
-                           <div className="text-xs text-slate-500">견적가 (VAT별도)</div>
+                           <div className="text-xs text-slate-500">견적가 (VAT포함)</div>
                            <div className="font-bold text-lg">{formatCurrency(rev.amount)}</div>
                          </div>
-                         <div className="text-right">
-                           <div className="text-xs text-slate-500">실행원가 / 이익률</div>
-                           <div className={`font-bold text-sm ${calculateMargin(rev.amount, rev.cost) < 10 ? 'text-red-500' : 'text-green-600'} print:text-black`}>
-                             {formatCurrency(rev.cost)} / {calculateMargin(rev.amount, rev.cost)}%
+                         {/* 실행원가가 있는 경우에만 이익 표시 */}
+                         {selectedProject.finalCost > 0 && (
+                           <div className="text-right">
+                             <div className="text-xs text-slate-500">예상 이익률</div>
+                             <div className={`font-bold text-sm ${calculateMargin(rev.amount, selectedProject.finalCost) < 10 ? 'text-red-500' : 'text-green-600'} print:text-black`}>
+                               {calculateMargin(rev.amount, selectedProject.finalCost)}%
+                             </div>
                            </div>
-                         </div>
+                         )}
                       </div>
-                      <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded print:bg-white print:border print:border-slate-200 print:text-xs">{rev.note}</p>
+                      <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded print:bg-white print:border print:border-slate-200 print:text-xs whitespace-pre-wrap">{rev.note}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="w-80 border-r border-slate-100 flex flex-col bg-white no-print">
-                <div className="p-4 border-b">
-                  <h3 className="font-bold text-sm flex items-center gap-2 text-slate-800"><Mail className="w-4 h-4 text-purple-600"/> 고객 이메일 작성</h3>
-                </div>
-                <div className="p-4 flex-1 overflow-auto flex flex-col">
-                  {generatedEmail ? (
-                    <div className="flex-1 flex flex-col">
-                      <textarea className="w-full flex-1 border border-slate-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2" value={generatedEmail} onChange={(e) => setGeneratedEmail(e.target.value)}></textarea>
-                      <button onClick={() => {navigator.clipboard.writeText(generatedEmail); alert('복사되었습니다');}} className="w-full bg-slate-100 text-slate-700 py-2 rounded text-sm hover:bg-slate-200">클립보드 복사</button>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-4">
-                      <Sparkles className="w-8 h-8 mb-2 text-purple-200" />
-                      <p className="text-xs mb-4">견적 내용을 바탕으로<br/>AI가 이메일 초안을 작성합니다.</p>
-                      <button onClick={handleGenerateEmail} disabled={aiLoading} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">
-                        {aiLoading ? '작성 중...' : '✨ 이메일 초안 생성'}
+              {/* Right: Controls (Sidebar) */}
+              <div className="w-80 p-6 bg-white overflow-auto no-print flex flex-col gap-6">
+                
+                {/* 1. Status Controls */}
+                <div>
+                  <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase">상태 변경 (Status)</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['진행중', '수주', '실주', '보류'].map(s => (
+                      <button 
+                        key={s} 
+                        onClick={() => handleStatusChange(s)} 
+                        className={`text-xs py-2 rounded border transition-colors font-medium
+                          ${(selectedProject.status === s || (s === '진행중' && selectedProject.status === 'In Progress') || (s === '수주' && selectedProject.status === 'Won')) 
+                            ? 'bg-slate-800 text-white border-slate-800' 
+                            : 'bg-white hover:bg-slate-50 text-slate-600'}`
+                        }
+                      >
+                        {s}
                       </button>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="w-80 p-6 bg-white overflow-auto no-print">
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase">Status</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['In Progress', 'Won', 'Lost', 'Hold'].map(s => (
-                        <button key={s} onClick={() => handleStatusChange(s)} className={`text-xs py-2 rounded border ${selectedProject.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white hover:bg-slate-50'}`}>{s}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4">
-                    <h4 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2"><Plus className="w-4 h-4"/> 새 리비전 등록</h4>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div><label className="text-xs text-slate-500 block mb-1">견적가</label><input type="number" className="w-full border p-2 rounded text-sm" value={newRevAmount} onChange={e => setNewRevAmount(e.target.value)} placeholder="0"/></div>
-                        <div><label className="text-xs text-slate-500 block mb-1">실행원가</label><input type="number" className="w-full border p-2 rounded text-sm" value={newRevCost} onChange={e => setNewRevCost(e.target.value)} placeholder="0"/></div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-500 block mb-1 flex justify-between"><span>수정 사유</span><button onClick={handleRefineNote} disabled={aiLoading} className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-[10px]"><Sparkles className="w-3 h-3"/> {aiLoading ? '...' : 'AI 다듬기'}</button></label>
-                        <textarea className="w-full border p-2 rounded text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={newRevNote} onChange={e => setNewRevNote(e.target.value)} placeholder="예: 자재비 상승으로..."></textarea>
-                      </div>
-                      <button onClick={handleAddRevision} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">업데이트 저장</button>
-                    </div>
+                {/* 2. Final Cost Management (New) */}
+                <div className="bg-yellow-50 rounded-xl border border-yellow-100 p-4">
+                  <h4 className="font-bold text-sm text-yellow-900 mb-2 flex items-center gap-2"><DollarSign className="w-4 h-4"/> 최종 실행원가 관리</h4>
+                  <p className="text-[10px] text-yellow-700 mb-3">계약 후 확정된 실행원가를 입력하세요.<br/>이 금액을 기준으로 마진이 계산됩니다.</p>
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      className="w-full border p-2 rounded text-sm bg-white" 
+                      placeholder="0"
+                      value={finalCostInput}
+                      onChange={(e) => setFinalCostInput(e.target.value)}
+                    />
+                    <button onClick={handleUpdateFinalCost} className="bg-yellow-600 text-white px-3 rounded text-xs font-bold hover:bg-yellow-700">저장</button>
                   </div>
                 </div>
+
+                {/* 3. New Revision */}
+                <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4">
+                  <h4 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2"><Plus className="w-4 h-4"/> 새 견적 리비전</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1">견적금액 (VAT포함)</label>
+                      <input type="number" className="w-full border p-2 rounded text-sm bg-white" value={newRevAmount} onChange={e => setNewRevAmount(e.target.value)} placeholder="0"/>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1 flex justify-between"><span>수정 사유</span><button onClick={handleRefineNote} disabled={aiLoading} className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-[10px]"><Sparkles className="w-3 h-3"/> {aiLoading ? '...' : 'AI 다듬기'}</button></label>
+                      <textarea className="w-full border p-2 rounded text-sm h-24 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white" value={newRevNote} onChange={e => setNewRevNote(e.target.value)} placeholder="예: 자재비 상승으로..."></textarea>
+                    </div>
+                    <button onClick={handleAddRevision} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all">리비전 저장</button>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
