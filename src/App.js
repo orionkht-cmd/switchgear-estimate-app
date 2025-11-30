@@ -13,7 +13,8 @@ import {
   ChevronRight, Search, Save, X, CheckCircle2, TrendingUp, 
   Briefcase, User, Calculator, ScrollText, DollarSign,
   Users, RefreshCw, Sparkles, Printer, FileSpreadsheet,
-  Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature
+  Wifi, WifiOff, AlertCircle, Trash2, Edit, Truck, Hammer, Coins, FileSignature,
+  Lightbulb
 } from 'lucide-react';
 
 // --- [중요] Firebase 설정 ---
@@ -40,9 +41,9 @@ try {
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'switchgear-pro';
 
-// --- Gemini API Helper (사유 다듬기용) ---
+// --- Gemini API Helper ---
 const generateGeminiContent = async (prompt) => {
-  const apiKey = ""; 
+  const apiKey = ""; // 런타임 환경에서 주입됨
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -82,7 +83,6 @@ const StatusBadge = ({ status }) => {
     '보류': 'bg-gray-100 text-gray-800 border-gray-200',
   };
   
-  // 기존 영어 데이터 호환용 매핑
   const label = {
     'In Progress': '진행중',
     'Won': '수주',
@@ -112,16 +112,16 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState(''); // AI 분석 결과 저장
   
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   const [newRevNote, setNewRevNote] = useState('');
   const [newRevAmount, setNewRevAmount] = useState('');
-  // 실행원가는 리비전에서 제외되고 별도 관리됨
   const [finalCostInput, setFinalCostInput] = useState(''); 
 
   const [projectForm, setProjectForm] = useState({
-    projectIdDisplay: '', // 프로젝트 번호 직접 입력 필드 추가
+    projectIdDisplay: '', 
     name: '', client: '', manager: '', salesRep: '', contractMethod: '수의계약'
   });
 
@@ -175,7 +175,6 @@ export default function App() {
         const updated = projectsData.find(p => p.id === selectedProject.id);
         if (updated) {
           setSelectedProject(updated);
-          // 모달이 열려있을 때 최신 실행원가 반영
           if (updated.finalCost) setFinalCostInput(updated.finalCost);
         }
       }
@@ -203,7 +202,6 @@ export default function App() {
 
   // --- Handlers ---
   const handleOpenCreateModal = () => {
-    // 신규 생성 시 기본 프로젝트 번호 자동 생성 (수정 가능)
     const defaultId = `PJ-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
     setProjectForm({ 
       projectIdDisplay: defaultId, 
@@ -216,7 +214,7 @@ export default function App() {
   const handleOpenEditModal = () => {
     if (!selectedProject) return;
     setProjectForm({
-      projectIdDisplay: selectedProject.projectIdDisplay, // 기존 번호 불러오기
+      projectIdDisplay: selectedProject.projectIdDisplay, 
       name: selectedProject.name,
       client: selectedProject.client,
       manager: selectedProject.manager,
@@ -242,9 +240,9 @@ export default function App() {
         alert("프로젝트 정보가 수정되었습니다.");
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
-          ...projectForm, // 여기에 projectIdDisplay가 포함됨
-          status: '진행중', // 한글 기본값
-          finalCost: 0, // 실행원가 초기값
+          ...projectForm, 
+          status: '진행중', 
+          finalCost: 0, 
           createdAt: serverTimestamp(),
           createdBy: user.uid,
           revisions: [{ rev: 0, date: new Date().toISOString().split('T')[0], amount: 0, note: '최초 생성', file: '-' }],
@@ -275,7 +273,6 @@ export default function App() {
       rev: selectedProject.revisions.length,
       date: new Date().toISOString().split('T')[0],
       amount: parseInt(newRevAmount),
-      // cost 제거됨
       note: newRevNote || '정기 수정',
       file: `EST_Rev${selectedProject.revisions.length}.xlsx`
     };
@@ -317,12 +314,41 @@ export default function App() {
     } catch (e) { console.error("Progress update failed", e); }
   };
 
+  // --- Gemini Features ---
+
   const handleRefineNote = async () => {
     if (!newRevNote) return alert("다듬을 내용을 입력해주세요.");
     setAiLoading(true);
     const prompt = `사용자가 입력한 견적 수정 사유를 보고서용으로 다듬어주세요.\n- 입력: "${newRevNote}"\n- 출력: 문장 하나만.`;
     const result = await generateGeminiContent(prompt);
     setNewRevNote(result.trim());
+    setAiLoading(false);
+  };
+
+  // New Feature: AI Project Analysis
+  const handleAnalyzeProject = async () => {
+    if (!selectedProject) return;
+    setAiLoading(true);
+    const lastRev = selectedProject.revisions[selectedProject.revisions.length - 1];
+    const margin = calculateMargin(lastRev.amount, selectedProject.finalCost || 0);
+    
+    const prompt = `
+      당신은 배전반 및 전기 공사 분야의 전문 프로젝트 매니저입니다.
+      아래 프로젝트 현황 데이터를 분석하여 위험 요소와 개선할 점을 3줄 이내로 요약해주세요. 한국어로 답변하세요.
+      
+      - 프로젝트명: ${selectedProject.name}
+      - 발주처: ${selectedProject.client}
+      - 현재 상태: ${selectedProject.status}
+      - 견적 금액: ${formatCurrency(lastRev.amount)}
+      - 최종 실행원가: ${formatCurrency(selectedProject.finalCost || 0)} (0원이면 아직 확정되지 않음)
+      - 현재 마진율: ${margin}%
+      - 견적 수정 횟수: ${selectedProject.revisions.length}회
+      
+      분석 포인트: 마진율의 건전성, 잦은 수정에 따른 리스크, 현 단계에서 필요한 조치.
+    `;
+
+    const result = await generateGeminiContent(prompt);
+    setAiAnalysisResult(result);
     setAiLoading(false);
   };
 
@@ -341,17 +367,14 @@ export default function App() {
       ["Rev", "날짜", "수정 사유", "견적금액(VAT포함)", "이익금", "이익률(%)"]
     ];
     
-    // 원가 가져오기 (전역)
     const cost = selectedProject.finalCost || 0;
 
     revisions.forEach((rev, index) => {
-      const r = 7 + index; // 데이터 시작 행
+      const r = 7 + index; 
       const row = [
         rev.rev, rev.date, rev.note,
         { t: 'n', v: rev.amount, z: '#,##0' },
-        // 이익금 = 매출 - 원가 (단, 원가는 고정값이므로 직접 계산 혹은 수식)
         { t: 'n', v: rev.amount - cost, z: '#,##0' }, 
-        // 이익률
         { t: 'n', f: `IF(D${r}=0, 0, E${r}/D${r})`, z: '0.0%' }
       ];
       wsData.push(row);
@@ -365,7 +388,6 @@ export default function App() {
   // --- Stats ---
   const stats = useMemo(() => {
     const total = projects.length;
-    // 한글 상태값으로 필터링
     const ongoing = projects.filter(p => p.status === '진행중' || p.status === 'In Progress').length;
     const won = projects.filter(p => p.status === '수주' || p.status === 'Won').length;
     
@@ -463,7 +485,6 @@ export default function App() {
                     <tbody className="divide-y">
                       {projects.map(p => {
                         const lastRev = p.revisions?.[p.revisions.length - 1] || { amount: 0 };
-                        // 진행 단계 확인
                         const progress = p.progress || {};
                         const doneCount = ['contract', 'production', 'delivery', 'collection'].filter(k => !!progress[k]).length;
                         
@@ -477,7 +498,7 @@ export default function App() {
                             <td className="px-4 py-3 text-slate-600">{p.salesRep} / {p.manager}</td>
                             <td className="px-4 py-3 text-right font-bold">{formatCurrency(lastRev.amount)}</td>
                             <td className="px-4 py-3 text-center">
-                              <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setFinalCostInput(p.finalCost || 0); }} className="text-blue-600 hover:underline">상세</button>
+                              <button onClick={() => { setSelectedProject(p); setIsModalOpen(true); setFinalCostInput(p.finalCost || 0); setAiAnalysisResult(''); }} className="text-blue-600 hover:underline">상세</button>
                               <span className="text-[10px] text-slate-400 block mt-1">{doneCount}/4 단계</span>
                             </td>
                           </tr>
@@ -620,7 +641,7 @@ export default function App() {
             
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row print:block print:overflow-visible">
               
-              {/* Left: History (Expanded - No Email Section) */}
+              {/* Left: History */}
               <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30 print:bg-white print:border-none print:overflow-visible">
                 <h3 className="font-bold mb-4 flex items-center gap-2 print:text-lg print:border-b print:pb-2">
                   <History className="w-4 h-4"/> 견적 히스토리 (History)
@@ -637,7 +658,6 @@ export default function App() {
                            <div className="text-xs text-slate-500">견적가 (VAT포함)</div>
                            <div className="font-bold text-lg">{formatCurrency(rev.amount)}</div>
                          </div>
-                         {/* 실행원가가 있는 경우에만 이익 표시 */}
                          {selectedProject.finalCost > 0 && (
                            <div className="text-right">
                              <div className="text-xs text-slate-500">예상 이익률</div>
@@ -656,6 +676,29 @@ export default function App() {
               {/* Right: Controls (Sidebar) */}
               <div className="w-80 p-6 bg-white overflow-auto no-print flex flex-col gap-6">
                 
+                {/* AI Project Analysis */}
+                <div className="bg-purple-50 rounded-xl border border-purple-100 p-4">
+                  <h4 className="font-bold text-sm text-purple-900 mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4"/> AI 프로젝트 분석</h4>
+                  <p className="text-[10px] text-purple-700 mb-3">현재 진행 상황과 마진율을 분석하여<br/>AI가 리스크 및 개선점을 진단합니다.</p>
+                  
+                  {!aiAnalysisResult && (
+                    <button 
+                      onClick={handleAnalyzeProject} 
+                      disabled={aiLoading}
+                      className="w-full bg-purple-600 text-white py-2 rounded text-xs font-bold hover:bg-purple-700 shadow-sm flex items-center justify-center gap-2"
+                    >
+                      {aiLoading ? '분석 중...' : '✨ 분석 실행하기'}
+                    </button>
+                  )}
+                  
+                  {aiAnalysisResult && (
+                    <div className="bg-white p-3 rounded-lg border border-purple-200 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed animate-fade-in">
+                      {aiAnalysisResult}
+                      <button onClick={() => setAiAnalysisResult('')} className="block w-full text-center text-[10px] text-slate-400 mt-2 hover:underline">다시 분석</button>
+                    </div>
+                  )}
+                </div>
+
                 {/* 1. Status Controls */}
                 <div>
                   <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase">상태 변경 (Status)</h4>
@@ -676,7 +719,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 2. Final Cost Management (New) */}
+                {/* 2. Final Cost Management */}
                 <div className="bg-yellow-50 rounded-xl border border-yellow-100 p-4">
                   <h4 className="font-bold text-sm text-yellow-900 mb-2 flex items-center gap-2"><DollarSign className="w-4 h-4"/> 최종 실행원가 관리</h4>
                   <p className="text-[10px] text-yellow-700 mb-3">계약 후 확정된 실행원가를 입력하세요.<br/>이 금액을 기준으로 마진이 계산됩니다.</p>
