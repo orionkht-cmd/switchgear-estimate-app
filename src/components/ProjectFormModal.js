@@ -9,6 +9,36 @@ const ProjectFormModal = ({
   onSave,
   onClose,
 }) => {
+  // Keyboard Shortcuts
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        onSave();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onSave, onClose]);
+
+  const handleEnterNavigation = (e) => {
+    if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const elements = Array.from(form.querySelectorAll('input, select, button, textarea'));
+      const index = elements.indexOf(e.target);
+      if (index > -1 && index < elements.length - 1) {
+        elements[index + 1].focus();
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -17,7 +47,7 @@ const ProjectFormModal = ({
         <h3 className="text-lg font-bold mb-4">
           {isEditMode ? '프로젝트 정보 수정' : '신규 프로젝트 등록'}
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-3" onKeyDown={handleEnterNavigation}>
           <div>
             <label className="text-xs text-slate-500 block mb-1">
               소속 대장 (회사 선택)
@@ -112,7 +142,7 @@ const ProjectFormModal = ({
           </div>
           <div>
             <label className="text-xs text-slate-500 block mb-1">
-              계약금액 (확정시 입력)
+              견적금액 (VAT포함)
             </label>
             <input
               type="number"

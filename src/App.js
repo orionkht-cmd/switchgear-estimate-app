@@ -11,6 +11,7 @@ import {
   Search,
   Plus,
   Edit3,
+  FileSpreadsheet,
 } from 'lucide-react';
 import DashboardView from './components/DashboardView';
 import ProjectListView from './components/ProjectListView';
@@ -19,6 +20,7 @@ import ProjectDetailModal from './components/ProjectDetailModal';
 import CompanySettingsModal from './components/CompanySettingsModal';
 import { useAppShell } from './hooks/useAppShell';
 import { useTailwindCdn } from './hooks/useTailwindCdn';
+import { exportProjectListToExcel } from './services/excelService';
 
 export default function App() {
   const {
@@ -28,6 +30,7 @@ export default function App() {
     activeTab,
     selectedCompany,
     selectedYear,
+    selectedStatus,
     projectYears,
     companies,
     searchQuery,
@@ -41,6 +44,7 @@ export default function App() {
     filteredAndSortedProjects,
     fileInputRef,
     setSelectedYear,
+    setSelectedStatus,
     setSearchQuery,
     setProjectForm,
     setSelectedProject,
@@ -58,6 +62,19 @@ export default function App() {
     handleUpdateCompanies,
   } = useAppShell();
 
+  const searchInputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const [isCompanyModalOpen, setIsCompanyModalOpen] = React.useState(false);
 
   useTailwindCdn();
@@ -73,26 +90,8 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
-      <style>
-        {`@media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: auto;
-            background: white;
-            padding: 20px;
-            z-index: 9999;
-          }
-          .no-print { display: none !important; }
-        }`}
-      </style>
-
-      <div className="flex h-full overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans print:h-auto print:overflow-visible">
+      <div className="flex h-full overflow-hidden print:hidden">
         {/* Sidebar */}
         <aside className="w-64 bg-slate-900 text-white hidden lg:flex flex-col z-20 no-print flex-shrink-0">
           <div className="p-6 border-b border-slate-800">
@@ -111,11 +110,10 @@ export default function App() {
             </div>
             <button
               onClick={() => handleMenuClick('dashboard', 'all')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors mb-4 ${
-                activeTab === 'dashboard'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors mb-4 ${activeTab === 'dashboard'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
             >
               <PieChart className="w-4 h-4" /> 통합 대시보드
             </button>
@@ -133,23 +131,21 @@ export default function App() {
               <button
                 key={company}
                 onClick={() => handleMenuClick('projects', company)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                  selectedCompany === company &&
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${selectedCompany === company &&
                   activeTab === 'projects'
-                    ? 'bg-slate-700 text-white border-l-4 border-green-400'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+                  ? 'bg-slate-700 text-white border-l-4 border-green-400'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
               >
                 <FolderKanban className="w-4 h-4" /> {company}
               </button>
             ))}
             <button
               onClick={() => handleMenuClick('projects', 'all')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mt-2 ${
-                selectedCompany === 'all' && activeTab === 'projects'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mt-2 ${selectedCompany === 'all' && activeTab === 'projects'
+                ? 'bg-slate-700 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
             >
               <Globe className="w-4 h-4" /> 전체 프로젝트 보기
             </button>
@@ -163,9 +159,8 @@ export default function App() {
                 <WifiOff className="w-4 h-4 text-red-400" />
               )}
               <span
-                className={`text-xs ${
-                  isConnected ? 'text-green-400' : 'text-red-400'
-                }`}
+                className={`text-xs ${isConnected ? 'text-green-400' : 'text-red-400'
+                  }`}
               >
                 {isConnected ? '시스템 정상 연결' : '연결 끊김'}
               </span>
@@ -192,6 +187,17 @@ export default function App() {
               />
             </div>
           </div>
+
+          <div className="px-4 py-2 text-[10px] text-slate-500 border-t border-slate-800">
+            <div className="font-bold mb-1 text-slate-400">단축키 안내</div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+              <span>/ : 검색</span>
+              <span>Enter : 다음 입력</span>
+              <span>Ctrl+S : 저장</span>
+              <span>Esc : 닫기</span>
+            </div>
+          </div>
+
         </aside>
 
         {/* Main Content */}
@@ -202,36 +208,66 @@ export default function App() {
                 {activeTab === 'dashboard'
                   ? '통합 경영 대시보드'
                   : selectedCompany === 'all'
-                  ? '전체 프로젝트'
-                  : `${selectedCompany} 대장`}
+                    ? '전체 프로젝트'
+                    : `${selectedCompany} 대장`}
               </h1>
 
               <div className="ml-auto flex items-center gap-3 hidden md:flex">
-                <select
-                  value={selectedYear}
-                  onChange={(e) =>
-                    setSelectedYear(
-                      e.target.value === 'all'
-                        ? 'all'
-                        : parseInt(e.target.value, 10),
-                    )
-                  }
-                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-slate-50 text-slate-700"
-                >
-                  <option value="all">전체 연도</option>
+                <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+                  <button
+                    onClick={() => setSelectedYear('all')}
+                    className={`px-3 py-1 text-xs rounded-md transition-all ${selectedYear === 'all'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                  >
+                    전체
+                  </button>
                   {projectYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year}년
-                    </option>
+                    <button
+                      key={year}
+                      onClick={() => setSelectedYear(year)}
+                      className={`px-3 py-1 text-xs rounded-md transition-all ${selectedYear === year
+                        ? 'bg-white text-blue-600 shadow-sm font-bold'
+                        : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                      {year}
+                    </button>
                   ))}
-                </select>
+                </div>
+
+                <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+                  <button
+                    onClick={() => setSelectedStatus('all')}
+                    className={`px-3 py-1 text-xs rounded-md transition-all ${selectedStatus === 'all'
+                      ? 'bg-white text-blue-600 shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                  >
+                    전체상태
+                  </button>
+                  {['계약', '제작', '납품', '완료', '보류'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setSelectedStatus(status)}
+                      className={`px-3 py-1 text-xs rounded-md transition-all ${selectedStatus === status
+                        ? 'bg-white text-blue-600 shadow-sm font-bold'
+                        : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
 
                 {activeTab === 'projects' && (
                   <div className="relative max-w-xs w-full">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
+                      ref={searchInputRef}
                       type="text"
-                      placeholder="검색..."
+                      placeholder="검색... (/)"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -242,8 +278,14 @@ export default function App() {
             </div>
 
             <button
+              onClick={() => exportProjectListToExcel(filteredAndSortedProjects)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-green-700 whitespace-nowrap ml-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> 목록 엑셀 저장
+            </button>
+            <button
               onClick={handleOpenCreateModal}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap ml-4"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap ml-2"
             >
               <Plus className="w-4 h-4" /> 프로젝트 등록
             </button>
@@ -270,7 +312,7 @@ export default function App() {
             )}
           </div>
         </main>
-      </div>
+      </div >
 
       <ProjectFormModal
         isOpen={isNewProjectModalOpen}
@@ -283,6 +325,7 @@ export default function App() {
       />
 
       <ProjectDetailModal
+        key={selectedProject?.id}
         isOpen={isDetailOpen}
         project={selectedProject}
         user={user}
@@ -297,6 +340,6 @@ export default function App() {
         onSave={handleUpdateCompanies}
         onClose={() => setIsCompanyModalOpen(false)}
       />
-    </div>
+    </div >
   );
 }

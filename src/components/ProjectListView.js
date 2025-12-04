@@ -6,7 +6,7 @@ import {
   Search,
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, calculateMargin } from '../utils/format';
 
 const SortIcon = ({ columnKey, sortConfig }) => {
   if (sortConfig.key !== columnKey) {
@@ -61,50 +61,41 @@ const ProjectListView = ({
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden animate-fade-in flex flex-col h-full">
       <div className="overflow-auto flex-1">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 border-b sticky top-0 z-10 shadow-sm">
+          <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wider text-slate-500">
             <tr>
               <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100"
+                className="px-4 py-3 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 w-[80px]"
                 onClick={() => onSort('status')}
               >
-                상태{' '}
-                <SortIcon
-                  columnKey="status"
-                  sortConfig={sortConfig}
-                />
+                상태
+                <SortIcon columnKey="status" sortConfig={sortConfig} />
               </th>
               <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100"
-                onClick={() => onSort('name')}
-              >
-                프로젝트명{' '}
-                <SortIcon
-                  columnKey="name"
-                  sortConfig={sortConfig}
-                />
-              </th>
-              <th className="px-4 py-3">소속대장</th>
-              <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100"
-                onClick={() => onSort('manager')}
-              >
-                담당자 (영업/설계){' '}
-                <SortIcon
-                  columnKey="manager"
-                  sortConfig={sortConfig}
-                />
-              </th>
-              <th
-                className="px-4 py-3 text-right cursor-pointer hover:bg-slate-100"
+                className="px-4 py-3 text-right sticky left-[80px] z-30 bg-slate-50 border-r border-slate-200 w-[120px] cursor-pointer hover:bg-slate-100"
                 onClick={() => onSort('contractAmount')}
               >
-                계약금액(VAT포함){' '}
-                <SortIcon
-                  columnKey="contractAmount"
-                  sortConfig={sortConfig}
-                />
+                금액
+                <SortIcon columnKey="contractAmount" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 text-center">관리</th>
+              <th className="px-4 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[80px]">
+                마진
+              </th>
+              <th
+                className="px-4 py-3 cursor-pointer hover:bg-slate-100 min-w-[200px]"
+                onClick={() => onSort('name')}
+              >
+                프로젝트명
+                <SortIcon columnKey="name" sortConfig={sortConfig} />
+              </th>
+              <th className="px-4 py-3 w-[100px]">소속대장</th>
+              <th
+                className="px-4 py-3 cursor-pointer hover:bg-slate-100 w-[140px]"
+                onClick={() => onSort('manager')}
+              >
+                담당자
+                <SortIcon columnKey="manager" sortConfig={sortConfig} />
+              </th>
+              <th className="px-4 py-3 text-center w-[80px]">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -126,34 +117,48 @@ const ProjectListView = ({
               return (
                 <tr
                   key={p.id}
-                  className="hover:bg-slate-50 transition-colors"
+                  className="hover:bg-slate-50 transition-colors text-sm"
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
                     <StatusBadge status={p.status} />
                   </td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900 sticky left-[80px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
+                    {formatCurrency(displayAmount)}
+                    {p.contractAmount > 0 && (
+                      <span className="text-xs text-green-600 block">
+                        확정
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center sticky left-[200px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
+                    {p.contractAmount > 0 && p.finalCost > 0 ? (
+                      <span
+                        className={`font-bold ${calculateMargin(p.contractAmount, p.finalCost) < 10
+                          ? 'text-red-500'
+                          : 'text-slate-600'
+                          }`}
+                      >
+                        {calculateMargin(p.contractAmount, p.finalCost)}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
-                    <div className="font-bold text-slate-800">
+                    <div className="font-bold text-slate-800 truncate max-w-[300px]" title={p.name}>
                       {p.name}
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 truncate max-w-[300px]" title={p.client}>
                       {p.client}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">
+                  <td className="px-4 py-3 text-slate-500 truncate">
                     {p.ledgerName}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-slate-600 truncate">
                     <span className="font-medium">{p.salesRep}</span>
                     <span className="text-slate-400 mx-1">/</span>
                     <span>{p.manager}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-900">
-                    {formatCurrency(displayAmount)}
-                    {p.contractAmount > 0 && (
-                      <span className="text-[10px] text-green-600 block">
-                        계약확정
-                      </span>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button
@@ -162,8 +167,8 @@ const ProjectListView = ({
                     >
                       상세
                     </button>
-                    <span className="text-[10px] text-slate-400 block mt-1">
-                      {doneCount}/4 단계
+                    <span className="text-xs text-slate-400 block">
+                      {doneCount}/4
                     </span>
                   </td>
                 </tr>
