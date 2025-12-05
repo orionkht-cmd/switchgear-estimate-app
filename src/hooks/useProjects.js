@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, query } from 'firebase/firestore';
-import { db, appId } from '../firebase';
-import { getProjectsCollection } from '../services/projects';
+import { projectApi } from '../services/apiClient';
 import { getProjectYear } from '../utils/projectYear';
 
 export const useProjects = (user, setLoading) => {
@@ -18,35 +16,71 @@ export const useProjects = (user, setLoading) => {
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedCompany, setSelectedCompany] = useState('all');
 
-    // --- Projects subscription ---
+    // --- Projects load ---
     useEffect(() => {
-        if (!user || !db) return;
-        const q = query(getProjectsCollection(db, appId));
-        const unsubscribe = onSnapshot(
-            q,
-            (snapshot) => {
+        if (!user) return;
+        let cancelled = false;
+
+        const load = async () => {
+            setLoading(true);
+            try {
+                const data = await projectApi.list();
+                if (cancelled) return;
+                setProjects(data || []);
                 setIsConnected(true);
-                const projectsData = snapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                projectsData.sort(
-                    (a, b) =>
-                        (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
-                );
-                setProjects(projectsData);
-                setLoading(false);
-            },
-            (error) => {
-                setIsConnected(false);
-                console.error('Firestore Error:', error);
-                alert(
-                    '데이터 로드 실패: Firestore 보안 규칙(Rules)을 확인해주세요.',
-                );
-                setLoading(false);
-            },
-        );
-        return () => unsubscribe();
+                if (typeof window !== 'undefined') {
+                    try {
+                        window.localStorage.setItem(
+                            'offlineProjectsSnapshot',
+                            JSON.stringify(data || []),
+                        );
+                    } catch (e) {
+                        // ignore storage errors
+                    }
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                if (!cancelled) {
+                    setIsConnected(false);
+                    let restored = false;
+                    if (typeof window !== 'undefined') {
+                        try {
+                            const raw =
+                                window.localStorage.getItem(
+                                    'offlineProjectsSnapshot',
+                                );
+                            if (raw) {
+                                const stored = JSON.parse(raw);
+                                if (Array.isArray(stored)) {
+                                    setProjects(stored);
+                                    restored = true;
+                                    alert(
+                                        '서버 연결 실패: 마지막으로 저장된 로컬 스냅샷을 불러왔습니다.',
+                                    );
+                                }
+                            }
+                        } catch (e) {
+                            // ignore parse errors
+                        }
+                    }
+                    if (!restored) {
+                        alert(
+                            '데이터 로드 실패: 서버 연결을 확인해주세요.',
+                        );
+                    }
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        load();
+
+        return () => {
+            cancelled = true;
+        };
     }, [user, setLoading]);
 
     // --- Derived values ---
@@ -142,6 +176,7 @@ export const useProjects = (user, setLoading) => {
 
     return {
         projects,
+        setProjects,
         isConnected,
         searchQuery,
         setSearchQuery,

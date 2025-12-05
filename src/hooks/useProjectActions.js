@@ -19,6 +19,7 @@ export const useProjectActions = (project, onClose, onDeleted) => {
             if (onDeleted) onDeleted(project.id);
             onClose();
             alert('프로젝트가 삭제되었습니다.');
+            window.location.reload();
         } catch (e) {
             alert('삭제 실패: ' + e.message);
         }

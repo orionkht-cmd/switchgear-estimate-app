@@ -1,4 +1,4 @@
-import { updateProjectFields } from '../services/projectDetailService';
+import { projectApi } from '../services/apiClient';
 
 export const useProjectStatus = (project) => {
     const handleStatusChange = async (status) => {
@@ -26,7 +26,7 @@ export const useProjectStatus = (project) => {
         }
 
         try {
-            await updateProjectFields(project.id, updates);
+            await projectApi.updateStatus(project.id, updates.status);
         } catch (e) {
             alert('상태 변경 실패');
         }
@@ -43,7 +43,7 @@ export const useProjectStatus = (project) => {
                 : new Date().toISOString().split('T')[0],
         };
         try {
-            await updateProjectFields(project.id, { progress: newProgress });
+            await projectApi.updateProgress(project.id, stage);
         } catch (e) {
             console.error('Progress update failed', e);
         }

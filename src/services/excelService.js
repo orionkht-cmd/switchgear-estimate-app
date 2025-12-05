@@ -1,5 +1,20 @@
 import { formatCurrency } from '../utils/format';
 
+const formatDateField = (value) => {
+    if (!value) return '';
+    if (value.toDate) {
+        try {
+            return value.toDate().toLocaleDateString();
+        } catch (e) {
+            return '';
+        }
+    }
+    if (typeof value === 'string') {
+        return value.slice(0, 10);
+    }
+    return '';
+};
+
 export const exportProjectListToExcel = (projects) => {
     if (!window.XLSX) {
         alert('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도해주세요.');
@@ -15,8 +30,8 @@ export const exportProjectListToExcel = (projects) => {
         설계담당: p.manager,
         계약금액: p.contractAmount || 0,
         최종실행원가: p.finalCost || 0,
-        생성일: p.createdAt?.toDate ? p.createdAt.toDate().toLocaleDateString() : '',
-        최근수정: p.updatedAt?.toDate ? p.updatedAt.toDate().toLocaleDateString() : '',
+        생성일: formatDateField(p.createdAt),
+        최근수정: formatDateField(p.updatedAt),
     }));
     const ws = window.XLSX.utils.json_to_sheet(data);
     window.XLSX.utils.book_append_sheet(wb, ws, '프로젝트목록');

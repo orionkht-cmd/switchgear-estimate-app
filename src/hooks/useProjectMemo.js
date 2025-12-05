@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { updateProjectFields } from '../services/projectDetailService';
+import { projectApi } from '../services/apiClient';
 
 export const useProjectMemo = (project, user) => {
     const [memo, setMemo] = useState('');
@@ -28,28 +28,21 @@ export const useProjectMemo = (project, user) => {
             let memos = Array.isArray(memoList) ? [...memoList] : [];
 
             if (activeMemoIndex >= 0 && memos[activeMemoIndex]) {
-                memos[activeMemoIndex] = {
-                    ...memos[activeMemoIndex],
+                const target = memos[activeMemoIndex];
+                const updatedProject = await projectApi.updateMemo(project.id, target.id, {
+                    title: target.title,
                     content: memo,
-                    updatedAt: now,
-                };
+                });
+                memos = updatedProject.memos || [];
             } else {
                 const index = memos.length;
-                memos.push({
-                    id: `memo-${index + 1}`,
+                const updatedProject = await projectApi.createMemo(project.id, {
                     title: `메모 ${index + 1}`,
                     content: memo,
-                    createdAt: now,
-                    updatedAt: now,
                 });
+                memos = updatedProject.memos || [];
                 setActiveMemoIndex(index);
             }
-
-            await updateProjectFields(project.id, {
-                memos,
-                updatedAt: now,
-                lastModifier: user?.uid || null,
-            });
 
             setMemoList(memos);
             alert('메모가 저장되었습니다.');
@@ -65,14 +58,11 @@ export const useProjectMemo = (project, user) => {
         if (!window.confirm('선택한 메모를 삭제하시겠습니까?')) return;
 
         try {
-            const newMemos = memoList.filter((_, i) => i !== index);
-            await updateProjectFields(project.id, {
-                memos: newMemos,
-                updatedAt: new Date().toISOString(),
-                lastModifier: user?.uid || null,
+            const target = memoList[index];
+            const updatedProject = await projectApi.deleteMemo(project.id, target.id, {
+                userId: user?.uid || null,
             });
-
-            setMemoList(newMemos);
+            const newMemos = updatedProject.memos || [];
 
             if (newMemos.length === 0) {
                 setActiveMemoIndex(-1);
@@ -82,6 +72,8 @@ export const useProjectMemo = (project, user) => {
                 setActiveMemoIndex(nextIndex);
                 setMemo(newMemos[nextIndex].content || '');
             }
+
+            setMemoList(newMemos);
 
             alert('메모가 삭제되었습니다.');
         } catch (e) {

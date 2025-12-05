@@ -21,8 +21,9 @@ import CompanySettingsModal from './components/CompanySettingsModal';
 import { useAppShell } from './hooks/useAppShell';
 import { useTailwindCdn } from './hooks/useTailwindCdn';
 import { exportProjectListToExcel } from './services/excelService';
+import ApiKeyGate from './components/ApiKeyGate';
 
-export default function App() {
+function AppInner() {
   const {
     user,
     loading,
@@ -182,7 +183,7 @@ export default function App() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".json"
+                accept=".json,.xlsx,.xls"
                 style={{ display: 'none' }}
               />
             </div>
@@ -341,5 +342,13 @@ export default function App() {
         onClose={() => setIsCompanyModalOpen(false)}
       />
     </div >
+  );
+}
+
+export default function App() {
+  return (
+    <ApiKeyGate>
+      <AppInner />
+    </ApiKeyGate>
   );
 }

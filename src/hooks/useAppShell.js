@@ -1,29 +1,17 @@
 import { useState, useEffect } from 'react';
-import {
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db, appId } from '../firebase';
-import { getProjectsCollection, getProjectDoc } from '../services/projects';
 import { useAuth } from './useAuth';
 import { useCompanySettings } from './useCompanySettings';
 import { useBackup } from './useBackup';
 import { useProjects } from './useProjects';
+import { projectApi } from '../services/apiClient';
 
 export const useAppShell = () => {
   // --- Hooks ---
   const { user, loading, setLoading, authError } = useAuth();
   const { companies, setCompanies } = useCompanySettings();
   const {
-    fileInputRef,
-    xlsxLoaded,
-    handleBackup,
-    handleRestoreClick,
-    handleFileChange,
-  } = useBackup();
-  const {
     projects,
+    setProjects,
     isConnected,
     searchQuery,
     setSearchQuery,
@@ -39,6 +27,13 @@ export const useAppShell = () => {
     yearFilteredProjects,
     filteredAndSortedProjects,
   } = useProjects(user, setLoading);
+  const {
+    fileInputRef,
+    xlsxLoaded,
+    handleBackup,
+    handleRestoreClick,
+    handleFileChange,
+  } = useBackup(projects, setProjects);
 
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -142,47 +137,28 @@ export const useAppShell = () => {
 
     try {
       if (isEditMode && selectedProject) {
-        const projectRef = getProjectDoc(db, appId, selectedProject.id);
-        await updateDoc(projectRef, {
+        await projectApi.update(selectedProject.id, {
           ...projectForm,
           contractAmount: parseInt(
             projectForm.contractAmount || 0,
             10,
           ),
-          updatedAt: serverTimestamp(),
           lastModifier: user.uid,
         });
         alert('프로젝트 정보가 수정되었습니다.');
       } else {
-        await addDoc(getProjectsCollection(db, appId), {
+        await projectApi.create({
           ...projectForm,
           contractAmount: parseInt(
             projectForm.contractAmount || 0,
             10,
           ),
-          status: '진행중',
-          finalCost: 0,
-          createdAt: serverTimestamp(),
           createdBy: user.uid,
-          revisions: [
-            {
-              rev: 0,
-              date: new Date().toISOString().split('T')[0],
-              amount: 0,
-              note: '최초 생성',
-              file: '-',
-            },
-          ],
-          progress: {
-            contract: null,
-            production: null,
-            delivery: null,
-            collection: null,
-          },
         });
         alert('새 프로젝트가 등록되었습니다.');
       }
       setIsNewProjectModalOpen(false);
+      window.location.reload();
     } catch (e) {
       alert('저장 중 오류가 발생했습니다: ' + e.message);
     }

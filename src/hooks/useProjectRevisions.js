@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { updateProjectFields } from '../services/projectDetailService';
 import { refineRevisionNote } from '../utils/analysis';
+import { projectApi } from '../services/apiClient';
 
 export const useProjectRevisions = (project, user) => {
     const [newRevNote, setNewRevNote] = useState('');
     const [newRevAmount, setNewRevAmount] = useState('');
     const [editingRevIndex, setEditingRevIndex] = useState(null);
+    const [editingRevId, setEditingRevId] = useState(null);
     const [editRevData, setEditRevData] = useState({ amount: '', note: '' });
 
     const handleAddRevision = async () => {
@@ -18,10 +19,10 @@ export const useProjectRevisions = (project, user) => {
             file: `EST_Rev${project.revisions.length}.xlsx`,
         };
         try {
-            await updateProjectFields(project.id, {
-                revisions: [...project.revisions, newRev],
-                updatedAt: new Date().toISOString(),
-                lastModifier: user?.uid || null,
+            await projectApi.addRevision(project.id, {
+                amount: newRev.amount,
+                note: newRev.note,
+                userId: user?.uid || null,
             });
             setNewRevNote('');
             setNewRevAmount('');
@@ -33,25 +34,24 @@ export const useProjectRevisions = (project, user) => {
 
     const handleEditRevision = (index, rev) => {
         setEditingRevIndex(index);
+        setEditingRevId(rev.id || null);
         setEditRevData({ amount: rev.amount, note: rev.note });
     };
 
     const handleSaveEditedRevision = async (index) => {
         if (!project) return;
-        const updatedRevisions = [...project.revisions];
-        const realIndex = project.revisions.length - 1 - index;
-        updatedRevisions[realIndex] = {
-            ...updatedRevisions[realIndex],
-            amount: parseInt(editRevData.amount, 10),
-            note: editRevData.note,
-            updatedAt: new Date().toISOString(),
-        };
+        if (!editingRevId) {
+            alert('수정할 이력을 찾을 수 없습니다.');
+            return;
+        }
         try {
-            await updateProjectFields(project.id, {
-                revisions: updatedRevisions,
-                lastModifier: user?.uid || null,
+            await projectApi.updateRevision(project.id, editingRevId, {
+                amount: parseInt(editRevData.amount, 10),
+                note: editRevData.note,
+                userId: user?.uid || null,
             });
             setEditingRevIndex(null);
+            setEditingRevId(null);
             alert('수정되었습니다.');
         } catch (e) {
             alert('수정 실패');

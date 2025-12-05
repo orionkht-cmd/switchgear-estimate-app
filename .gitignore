@@ -1,2 +1,9 @@
-node_modules
 .vercel
+.env*.local
+
+# backend 쪽 전부 무시
+backend/
+backend/data/
+backend/.env
+backend/node-lts.msi
+backup_2025-12-04.json
