@@ -21,7 +21,7 @@ import CompanySettingsModal from './components/CompanySettingsModal';
 import { useAppShell } from './hooks/useAppShell';
 import { useTailwindCdn } from './hooks/useTailwindCdn';
 import { exportProjectListToExcel } from './services/excelService';
-// import ApiKeyGate from './components/ApiKeyGate';
+import ApiKeyGate from './components/ApiKeyGate';
 
 function AppInner() {
   const {
@@ -354,8 +354,8 @@ function AppInner() {
 
 export default function App() {
   return (
-    // <ApiKeyGate>
+    <ApiKeyGate>
       <AppInner />
-    // </ApiKeyGate>
+    </ApiKeyGate>
   );
 }
