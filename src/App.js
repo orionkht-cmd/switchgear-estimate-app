@@ -21,7 +21,7 @@ import CompanySettingsModal from './components/CompanySettingsModal';
 import { useAppShell } from './hooks/useAppShell';
 import { useTailwindCdn } from './hooks/useTailwindCdn';
 import { exportProjectListToExcel } from './services/excelService';
-import ApiKeyGate from './components/ApiKeyGate';
+// import ApiKeyGate from './components/ApiKeyGate';
 
 function AppInner() {
   const {
@@ -61,6 +61,7 @@ function AppInner() {
     handleRestoreClick,
     handleFileChange,
     handleUpdateCompanies,
+    handleLoadLocalBackup,
   } = useAppShell();
 
   const searchInputRef = React.useRef(null);
@@ -178,6 +179,12 @@ function AppInner() {
                 className="flex items-center justify-center gap-1 text-[10px] text-slate-400 hover:text-white hover:bg-slate-800 py-2 rounded bg-slate-800 border border-slate-700"
               >
                 <Upload className="w-3 h-3" /> 복원
+              </button>
+              <button
+                onClick={handleLoadLocalBackup}
+                className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-slate-400 hover:text-white hover:bg-slate-800 py-2 rounded bg-slate-800 border border-slate-700"
+              >
+                <Download className="w-3 h-3" /> 로컬 백업 불러오기
               </button>
               <input
                 type="file"
@@ -347,8 +354,8 @@ function AppInner() {
 
 export default function App() {
   return (
-    <ApiKeyGate>
+    // <ApiKeyGate>
       <AppInner />
-    </ApiKeyGate>
+    // </ApiKeyGate>
   );
 }

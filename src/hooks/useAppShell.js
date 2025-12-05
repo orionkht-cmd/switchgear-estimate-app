@@ -56,6 +56,25 @@ export const useAppShell = () => {
   });
 
   // --- Effects ---
+  // Sync projects to Local Storage (Dual Backup)
+  useEffect(() => {
+    if (projects.length > 0) {
+      localStorage.setItem('PROJECTS_BACKUP', JSON.stringify(projects));
+      // console.log('Local backup synced');
+    }
+  }, [projects]);
+
+  const handleLoadLocalBackup = () => {
+    const backup = localStorage.getItem('PROJECTS_BACKUP');
+    if (backup) {
+      if (window.confirm('로컬 백업 데이터를 불러오시겠습니까? \n(현재 화면의 데이터가 로컬 데이터로 대체됩니다)')) {
+        setProjects(JSON.parse(backup));
+      }
+    } else {
+      alert('저장된 로컬 백업이 없습니다.');
+    }
+  };
+
   // Sync selectedProject when projects update
   useEffect(() => {
     if (selectedProject) {
@@ -216,6 +235,7 @@ export const useAppShell = () => {
     handleBackup,
     handleRestoreClick,
     handleFileChange,
+    handleLoadLocalBackup,
     handleUpdateCompanies: setCompanies,
   };
 };
