@@ -10,10 +10,11 @@ export const useProjectDetail = ({
   isOpen,
   onClose,
   onDeleted,
+  onUpdate,
 }) => {
   const revisions = useProjectRevisions(project, user);
   const memos = useProjectMemo(project, user);
-  const status = useProjectStatus(project);
+  const status = useProjectStatus(project, onUpdate);
   const cost = useProjectCost(project);
   const actions = useProjectActions(project, onClose, onDeleted);
 

@@ -62,6 +62,7 @@ function AppInner() {
     handleFileChange,
     handleUpdateCompanies,
     handleLoadLocalBackup,
+    handleProjectUpdate,
   } = useAppShell();
 
   const searchInputRef = React.useRef(null);
@@ -255,7 +256,7 @@ function AppInner() {
                   >
                     전체상태
                   </button>
-                  {['계약', '제작', '납품', '완료', '보류'].map((status) => (
+                  {['설계', '계약', '제작', '납품', '완료', '보류'].map((status) => (
                     <button
                       key={status}
                       onClick={() => setSelectedStatus(status)}
@@ -340,6 +341,7 @@ function AppInner() {
         onClose={handleCloseDetail}
         onOpenEdit={handleOpenEditModal}
         onDeleted={() => setSelectedProject(null)}
+        onUpdate={handleProjectUpdate}
       />
 
       <CompanySettingsModal

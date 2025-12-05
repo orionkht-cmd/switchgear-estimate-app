@@ -183,6 +183,13 @@ export const useAppShell = () => {
     }
   };
 
+  const handleProjectUpdate = (updatedProject) => {
+    setSelectedProject(updatedProject);
+    setProjects((prev) =>
+      prev.map((p) => (p.id === updatedProject.id ? updatedProject : p))
+    );
+  };
+
   return {
     // raw data
     user,
@@ -237,5 +244,6 @@ export const useAppShell = () => {
     handleFileChange,
     handleLoadLocalBackup,
     handleUpdateCompanies: setCompanies,
+    handleProjectUpdate,
   };
 };

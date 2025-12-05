@@ -107,6 +107,7 @@ export const useProjects = (user, setLoading) => {
 
         if (selectedStatus !== 'all') {
             const statusMap = {
+                '설계': 'design',
                 '계약': 'contract',
                 '제작': 'production',
                 '납품': 'delivery',

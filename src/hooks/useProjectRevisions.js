@@ -71,6 +71,36 @@ export const useProjectRevisions = (project, user) => {
         setNewRevNote(refined);
     };
 
+    const handleDeleteRevision = async (revId) => {
+        if (!project || !revId) return;
+        if (!window.confirm('정말 이 리비전을 삭제하시겠습니까?')) return;
+        try {
+            await projectApi.deleteRevision(project.id, revId);
+            alert('삭제되었습니다.');
+            // 부모 컴포넌트에서 데이터 갱신 필요 (onUpdate 콜백 사용 권장)
+            window.location.reload(); // 임시로 새로고침 사용 (onUpdate 연결 후 변경 예정)
+        } catch (e) {
+            alert('삭제 실패');
+        }
+    };
+
+    const handleSaveAsNewRevision = async () => {
+        if (!project || !editingRevId) return;
+        try {
+            await projectApi.addRevision(project.id, {
+                amount: parseInt(editRevData.amount, 10),
+                note: editRevData.note,
+                userId: user?.uid || null,
+            });
+            setEditingRevIndex(null);
+            setEditingRevId(null);
+            alert('새 버전으로 저장되었습니다.');
+            window.location.reload(); // 임시로 새로고침 사용
+        } catch (e) {
+            alert('저장 실패');
+        }
+    };
+
     return {
         newRevNote,
         setNewRevNote,
@@ -84,5 +114,7 @@ export const useProjectRevisions = (project, user) => {
         handleSaveEditedRevision,
         handleCancelEdit,
         handleRefineNote,
+        handleDeleteRevision,
+        handleSaveAsNewRevision,
     };
 };

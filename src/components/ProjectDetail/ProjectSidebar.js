@@ -104,13 +104,13 @@ const ProjectSidebar = ({
                 상태 변경
             </h4>
             <div className="grid grid-cols-2 gap-2">
-                {['계약', '제작', '납품', '완료', '보류'].map((s) => (
+                {['설계', '계약', '제작', '납품', '완료', '보류'].map((s) => (
                     <button
                         key={s}
                         onClick={() => onStatusChange(s)}
                         className={`text-xs py-2 rounded border font-medium ${status === s
-                                ? 'bg-slate-800 text-white'
-                                : 'bg-white hover:bg-slate-50 text-slate-600'
+                            ? 'bg-slate-800 text-white'
+                            : 'bg-white hover:bg-slate-50 text-slate-600'
                             }`}
                     >
                         {s}

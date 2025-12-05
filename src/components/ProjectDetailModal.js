@@ -14,6 +14,7 @@ const ProjectDetailModal = ({
   onClose,
   onOpenEdit,
   onDeleted,
+  onUpdate,
 }) => {
   const detail = useProjectDetail({
     project,
@@ -21,6 +22,7 @@ const ProjectDetailModal = ({
     isOpen,
     onClose,
     onDeleted,
+    onUpdate,
   });
 
   const {
@@ -47,6 +49,8 @@ const ProjectDetailModal = ({
     handleEditRevision,
     handleSaveEditedRevision,
     handleCancelEdit,
+    handleDeleteRevision,
+    handleSaveAsNewRevision,
     handleStatusChange,
     handleUpdateCostAndContract,
     handleProgressToggle,
@@ -105,6 +109,8 @@ const ProjectDetailModal = ({
               onEditRevision={handleEditRevision}
               onCancelEdit={handleCancelEdit}
               onSaveEditedRevision={handleSaveEditedRevision}
+              onDeleteRevision={handleDeleteRevision}
+              onSaveAsNewRevision={handleSaveAsNewRevision}
             />
 
             <ProjectSidebar

@@ -1,5 +1,5 @@
 import React from 'react';
-import { History } from 'lucide-react';
+import { History, Trash2, Plus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 
 const ProjectHistory = ({
@@ -9,6 +9,8 @@ const ProjectHistory = ({
     onEditRevision,
     onCancelEdit,
     onSaveEditedRevision,
+    onDeleteRevision,
+    onSaveAsNewRevision,
 }) => (
     <div className="flex-1 overflow-auto p-6 border-r border-slate-100 bg-slate-50/30 print:bg-white print:border-none">
         <h3 className="font-bold mb-4 flex items-center gap-2">
@@ -49,12 +51,21 @@ const ProjectHistory = ({
                                 <p className="text-sm text-slate-600 whitespace-pre-wrap">
                                     {rev.note}
                                 </p>
-                                <button
-                                    onClick={() => onEditRevision(idx, rev)}
-                                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-slate-400 hover:text-slate-700"
-                                >
-                                    수정
-                                </button>
+                                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => onEditRevision(idx, rev)}
+                                        className="text-xs text-slate-400 hover:text-slate-700"
+                                    >
+                                        수정
+                                    </button>
+                                    <button
+                                        onClick={() => onDeleteRevision(rev.id)}
+                                        className="text-xs text-red-400 hover:text-red-600"
+                                        title="삭제"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
+                                </div>
                             </>
                         ) : (
                             <div className="space-y-2">
@@ -89,6 +100,13 @@ const ProjectHistory = ({
                                         className="text-xs text-slate-500"
                                     >
                                         취소
+                                    </button>
+                                    <button
+                                        onClick={onSaveAsNewRevision}
+                                        className="text-xs bg-green-600 text-white px-3 py-1 rounded flex items-center gap-1"
+                                        title="새 버전으로 저장"
+                                    >
+                                        <Plus className="w-3 h-3" /> 새 버전
                                     </button>
                                     <button
                                         onClick={() => onSaveEditedRevision(idx)}

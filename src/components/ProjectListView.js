@@ -108,6 +108,7 @@ const ProjectListView = ({
                 p.contractAmount > 0 ? p.contractAmount : lastRev.amount;
               const progress = p.progress || {};
               const doneCount = [
+                'design',
                 'contract',
                 'production',
                 'delivery',
@@ -168,7 +169,7 @@ const ProjectListView = ({
                       상세
                     </button>
                     <span className="text-xs text-slate-400 block">
-                      {doneCount}/4
+                      {doneCount}/5
                     </span>
                   </td>
                 </tr>
