@@ -7,3 +7,5 @@ backend/data/
 backend/.env
 backend/node-lts.msi
 backup_2025-12-04.json
+node_modules
+switchgear-estimate-app/
