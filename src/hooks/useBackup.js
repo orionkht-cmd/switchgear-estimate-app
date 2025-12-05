@@ -95,9 +95,38 @@ export const useBackup = (projects = [], setProjects) => {
                 }
 
                 try {
-                    await projectApi.backupRestore(data);
-                    alert('복원 완료');
+                    // 1. 우선 서버의 대량 복구(Bulk Insert) API 시도
+                    try {
+                        await projectApi.backupRestore(data);
+                        alert('복원 완료');
+                        window.location.reload();
+                        return;
+                    } catch (bulkError) {
+                        console.warn('서버 대량 복구 실패, 개별 복구 모드로 전환합니다.', bulkError);
+                    }
+
+                    // 2. 대량 복구 실패 시, 클라이언트에서 하나씩 생성 요청 (Client-side Loop)
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    for (const project of data) {
+                        try {
+                            // ID 충돌 방지를 위해 기존 ID를 유지하며 생성 시도
+                            await projectApi.create(project);
+                            successCount++;
+                        } catch (itemError) {
+                            console.error(`프로젝트 복구 실패: ${project.name}`, itemError);
+                            failCount++;
+                        }
+                    }
+
+                    if (successCount === 0) {
+                        throw new Error('모든 데이터 복구에 실패했습니다. (서버 연결 확인 필요)');
+                    }
+
+                    alert(`복원 완료 (성공: ${successCount}건, 실패: ${failCount}건)`);
                     window.location.reload();
+
                 } catch (error) {
                     console.warn('서버 복원 실패, 로컬 복원 시도', error);
                     if (
