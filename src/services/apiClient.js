@@ -1,3 +1,10 @@
+const DEFAULT_BACKENDS = [
+  'https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net:8443/estimate',
+  'https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net/estimate'
+];
+
+let activeFallbackIndex = 0;
+
 const getStoredBaseUrl = () => {
   if (typeof window !== 'undefined') {
     try {
@@ -11,8 +18,8 @@ const getStoredBaseUrl = () => {
     return process.env.REACT_APP_API_BASE_URL;
   }
 
-  // 기본값: 회사 공용 백엔드 주소 (Tailscale Funnel)
-  return 'https://vm-p1m.tailac2d43.ts.net';
+  // 기본값: 회사 공용 백엔드 주소 (Failover 지원)
+  return DEFAULT_BACKENDS[activeFallbackIndex];
 };
 
 export const getApiBaseUrl = () => {
@@ -22,12 +29,9 @@ export const getApiBaseUrl = () => {
 };
 
 export const apiRequest = async (path, options = {}) => {
-  const baseUrl = getApiBaseUrl();
-  const url =
-    path.startsWith('http://') || path.startsWith('https://')
-      ? path
-      : `${baseUrl}${path}`;
-
+  const isDefaultMode = !process.env.REACT_APP_API_BASE_URL && 
+                        (typeof window === 'undefined' || !window.__backend_base_url);
+  
   const headers = { ...(options.headers || {}) };
 
   let body = options.body;
@@ -52,35 +56,67 @@ export const apiRequest = async (path, options = {}) => {
     }
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    body,
-  });
+  // Failover Loop
+  // 현재 활성화된 백엔드부터 시작하여, 실패 시 다음 백엔드로 전환하며 재시도
+  const maxAttempts = isDefaultMode ? (DEFAULT_BACKENDS.length - activeFallbackIndex) : 1;
 
-  if (!response.ok) {
-    let errorPayload = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    const baseUrl = getApiBaseUrl();
+    const url =
+      path.startsWith('http://') || path.startsWith('https://')
+        ? path
+        : `${baseUrl}${path}`;
+
     try {
-      errorPayload = await response.json();
-    } catch (e) {
-      try {
-        errorPayload = await response.text();
-      } catch (e2) {
-        errorPayload = null;
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        body,
+      });
+
+      if (!response.ok) {
+        // 5xx 에러인 경우 백엔드 다운으로 간주하고 Failover 시도
+        if (response.status >= 500 && isDefaultMode && activeFallbackIndex < DEFAULT_BACKENDS.length - 1) {
+            throw new Error(`Server Error ${response.status}`);
+        }
+
+        let errorPayload = null;
+        try {
+          errorPayload = await response.json();
+        } catch (e) {
+          try {
+            errorPayload = await response.text();
+          } catch (e2) {
+            errorPayload = null;
+          }
+        }
+
+        const error = new Error('API request failed');
+        error.status = response.status;
+        error.payload = errorPayload;
+        throw error;
       }
+
+      if (response.status === 204) {
+        return null;
+      }
+
+      return await response.json();
+
+    } catch (err) {
+      // 네트워크 에러 또는 5xx 에러이면서, 다음 백엔드 후보가 남아있는 경우
+      const isClientError = err.status >= 400 && err.status < 500;
+      
+      if (isDefaultMode && !isClientError && activeFallbackIndex < DEFAULT_BACKENDS.length - 1) {
+        console.warn(`[API] Backend ${baseUrl} failed (${err.message}). Switching to backup...`);
+        activeFallbackIndex++; // 다음 백엔드로 인덱스 영구 변경
+        continue; // 루프 재시작 (새로운 getApiBaseUrl() 값을 사용하게 됨)
+      }
+      
+      // 재시도 불가능하면 에러 전파
+      throw err;
     }
-
-    const error = new Error('API request failed');
-    error.status = response.status;
-    error.payload = errorPayload;
-    throw error;
   }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return response.json();
 };
 
 export const projectApi = {
