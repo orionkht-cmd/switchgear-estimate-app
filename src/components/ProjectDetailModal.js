@@ -32,6 +32,7 @@ const ProjectDetailModal = ({
     editRevData,
     finalCostInput,
     contractAmountInput,
+    isCostConfirmed,
     analysisResult,
     memo,
     memoList,
@@ -41,6 +42,7 @@ const ProjectDetailModal = ({
     setNewRevAmount,
     setFinalCostInput,
     setContractAmountInput,
+    setIsCostConfirmed,
     setMemo,
     setActiveMemoIndex,
     setIsMemoOpen,
@@ -117,8 +119,10 @@ const ProjectDetailModal = ({
               project={project}
               finalCostInput={finalCostInput}
               contractAmountInput={contractAmountInput}
+              isCostConfirmed={isCostConfirmed}
               setFinalCostInput={setFinalCostInput}
               setContractAmountInput={setContractAmountInput}
+              setIsCostConfirmed={setIsCostConfirmed}
               onUpdateCost={handleUpdateCostAndContract}
               analysisResult={analysisResult}
               onAnalyze={handleAnalyzeProject}

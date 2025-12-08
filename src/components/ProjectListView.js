@@ -125,7 +125,7 @@ const ProjectListView = ({
                   </td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900 sticky left-[80px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
                     {formatCurrency(displayAmount)}
-                    {p.contractAmount > 0 && (
+                    {p.contractAmount > 0 && p.isCostConfirmed && (
                       <span className="text-xs text-green-600 block">
                         확정
                       </span>

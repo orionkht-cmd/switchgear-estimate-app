@@ -4,11 +4,13 @@ import { updateProjectFields } from '../services/projectDetailService';
 export const useProjectCost = (project) => {
     const [finalCostInput, setFinalCostInput] = useState('');
     const [contractAmountInput, setContractAmountInput] = useState('');
+    const [isCostConfirmed, setIsCostConfirmed] = useState(false);
 
     useEffect(() => {
         if (project) {
             setFinalCostInput(project.finalCost || 0);
             setContractAmountInput(project.contractAmount || 0);
+            setIsCostConfirmed(!!project.isCostConfirmed);
         }
     }, [project]);
 
@@ -18,6 +20,7 @@ export const useProjectCost = (project) => {
             await updateProjectFields(project.id, {
                 finalCost: parseInt(finalCostInput || 0, 10),
                 contractAmount: parseInt(contractAmountInput || 0, 10),
+                isCostConfirmed,
             });
             alert('금액 정보가 저장되었습니다.');
         } catch (e) {
@@ -30,6 +33,8 @@ export const useProjectCost = (project) => {
         setFinalCostInput,
         contractAmountInput,
         setContractAmountInput,
+        isCostConfirmed,
+        setIsCostConfirmed,
         handleUpdateCostAndContract,
     };
 };

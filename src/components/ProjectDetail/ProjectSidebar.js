@@ -6,8 +6,10 @@ const ProjectSidebar = ({
     project,
     finalCostInput,
     contractAmountInput,
+    isCostConfirmed,
     setFinalCostInput,
     setContractAmountInput,
+    setIsCostConfirmed,
     onUpdateCost,
     analysisResult,
     onAnalyze,
@@ -50,6 +52,18 @@ const ProjectSidebar = ({
                         value={finalCostInput}
                         onChange={(e) => setFinalCostInput(e.target.value)}
                     />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                    <input
+                        type="checkbox"
+                        id="confirmCost"
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
+                        checked={isCostConfirmed}
+                        onChange={(e) => setIsCostConfirmed(e.target.checked)}
+                    />
+                    <label htmlFor="confirmCost" className="text-xs text-emerald-800 font-bold select-none cursor-pointer">
+                        금액 확정
+                    </label>
                 </div>
                 <button
                     onClick={onUpdateCost}
