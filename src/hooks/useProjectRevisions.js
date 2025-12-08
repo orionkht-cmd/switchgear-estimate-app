@@ -27,6 +27,7 @@ export const useProjectRevisions = (project, user) => {
             setNewRevNote('');
             setNewRevAmount('');
             alert('견적 이력이 업데이트되었습니다.');
+            window.location.reload();
         } catch (e) {
             alert('업데이트 실패');
         }

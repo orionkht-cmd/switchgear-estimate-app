@@ -30,6 +30,7 @@ const ProjectHistory = ({
         <div className="space-y-4">
             {[...(project.revisions || [])].reverse().map((rev, idx) => {
                 const isEditing = editingRevIndex === idx;
+                const revNumber = (project.revisions || []).length - idx;
                 return (
                     <div
                         key={idx}
@@ -39,7 +40,7 @@ const ProjectHistory = ({
                             <>
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
-                                        Rev.{rev.rev}
+                                        Rev.{revNumber}
                                     </span>
                                     <span className="text-xs text-slate-400">{rev.date}</span>
                                 </div>
@@ -61,7 +62,7 @@ const ProjectHistory = ({
                                     <button
                                         onClick={() => onDeleteRevision(rev.id)}
                                         className="text-xs text-red-400 hover:text-red-600"
-                                        title="삭제"
+                                        title={`Rev.${revNumber} 삭제`}
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>
