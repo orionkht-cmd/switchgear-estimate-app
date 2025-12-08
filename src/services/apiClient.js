@@ -162,6 +162,11 @@ export const projectApi = {
       body: data,
     }),
 
+  deleteRevision: (projectId, revisionId) =>
+    apiRequest(`/api/projects/${projectId}/revisions/${revisionId}`, {
+      method: 'DELETE',
+    }),
+
   updateStatus: (projectId, status) => apiRequest(`/api/projects/${projectId}/status`, {
     method: 'PUT',
     body: { status },

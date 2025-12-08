@@ -62,7 +62,7 @@ const ProjectHistory = ({
                                     <button
                                         onClick={() => onDeleteRevision(rev.id)}
                                         className="text-xs text-red-400 hover:text-red-600"
-                                        title={`Rev.${revNumber} 삭제`}
+                                        title={`Rev.${revNumber} 삭제 (ID: ${rev.id})`}
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>

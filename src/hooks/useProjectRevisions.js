@@ -81,7 +81,8 @@ export const useProjectRevisions = (project, user) => {
             // 부모 컴포넌트에서 데이터 갱신 필요 (onUpdate 콜백 사용 권장)
             window.location.reload(); // 임시로 새로고침 사용 (onUpdate 연결 후 변경 예정)
         } catch (e) {
-            alert('삭제 실패');
+            console.error(e);
+            alert(`삭제 실패: ${e.message || '알 수 없는 오류'}`);
         }
     };
 
