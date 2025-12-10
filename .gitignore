@@ -37,10 +37,12 @@ desktop.ini
 .vercel
 
 # Backend
-backend/
+backend/node_modules/
 backend/data/
 backend/.env
 backend/node-lts.msi
+backend/*.db
+backend/db.json
 
 # Nested App
 switchgear-estimate-app/
