@@ -323,16 +323,6 @@ function AppInner() {
         </main>
       </div >
 
-      <ProjectFormModal
-        isOpen={isNewProjectModalOpen}
-        isEditMode={isEditMode}
-        projectForm={projectForm}
-        setProjectForm={setProjectForm}
-        companiesList={companies}
-        onSave={handleSaveProject}
-        onClose={handleCloseCreateModal}
-      />
-
       <ProjectDetailModal
         key={selectedProject?.id}
         isOpen={isDetailOpen}
@@ -342,6 +332,16 @@ function AppInner() {
         onOpenEdit={handleOpenEditModal}
         onDeleted={() => setSelectedProject(null)}
         onUpdate={handleProjectUpdate}
+      />
+
+      <ProjectFormModal
+        isOpen={isNewProjectModalOpen}
+        isEditMode={isEditMode}
+        projectForm={projectForm}
+        setProjectForm={setProjectForm}
+        companiesList={companies}
+        onSave={handleSaveProject}
+        onClose={handleCloseCreateModal}
       />
 
       <CompanySettingsModal

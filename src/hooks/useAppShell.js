@@ -133,6 +133,7 @@ export const useAppShell = () => {
   const handleOpenEditModal = () => {
     if (!selectedProject) return;
     setProjectForm({
+      id: selectedProject.id, // ID 추적 추가
       projectIdDisplay: selectedProject.projectIdDisplay,
       name: selectedProject.name,
       client: selectedProject.client,
@@ -155,8 +156,15 @@ export const useAppShell = () => {
     if (!user) return;
 
     try {
-      if (isEditMode && selectedProject) {
-        await projectApi.update(selectedProject.id, {
+      if (isEditMode) {
+        // 수정 모드일 때 ID 찾기 (projectForm.id 우선)
+        const targetId = projectForm.id || (selectedProject ? selectedProject.id : null);
+
+        if (!targetId) {
+          throw new Error('수정할 프로젝트 ID를 찾을 수 없습니다.');
+        }
+
+        await projectApi.update(targetId, {
           ...projectForm,
           contractAmount: parseInt(
             projectForm.contractAmount || 0,
