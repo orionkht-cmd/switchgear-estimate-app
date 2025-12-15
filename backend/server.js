@@ -1,11 +1,25 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+// backend/.env, 루트 .env 둘 다 시도해서 읽기 (backend/.env 우선)
+const backendEnvPath = path.join(__dirname, '.env');
+const rootEnvPath = path.join(__dirname, '..', '.env');
+
+if (fs.existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath });
+}
+
+if (fs.existsSync(backendEnvPath)) {
+  dotenv.config({ path: backendEnvPath });
+}
 
 // SQLite 초기화
-const db = new Database('data.db');
+const db = new Database(path.join(__dirname, 'data.db'));
 
 // --- DB 스키마 ---
 db.exec(`
@@ -37,6 +51,119 @@ const safeParseJson = (raw, fallback) => {
   } catch (e) {
     return fallback;
   }
+};
+
+const sendError = (res, status, message) =>
+  res.status(status).json({ error: message });
+
+const isPlainObject = (value) => {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
+const requireJsonObjectBody = (req, res, next) => {
+  if (req.body === undefined || req.body === null) {
+    req.body = {};
+    return next();
+  }
+  if (!isPlainObject(req.body)) {
+    return sendError(res, 400, 'Body must be a JSON object');
+  }
+  return next();
+};
+
+const validateProjectBody = (req, res, next) => {
+  if (!isPlainObject(req.body)) {
+    return sendError(res, 400, 'Body must be a JSON object');
+  }
+
+  const {
+    id,
+    name,
+    client,
+    revisions,
+    memos,
+    progress,
+    createdAt,
+    updatedAt,
+    data,
+  } = req.body;
+
+  if (id !== undefined && typeof id !== 'string') {
+    return sendError(res, 400, '`id` must be a string');
+  }
+  if (name !== undefined && typeof name !== 'string') {
+    return sendError(res, 400, '`name` must be a string');
+  }
+  if (client !== undefined && typeof client !== 'string') {
+    return sendError(res, 400, '`client` must be a string');
+  }
+  if (revisions !== undefined && !Array.isArray(revisions)) {
+    return sendError(res, 400, '`revisions` must be an array');
+  }
+  if (memos !== undefined && !Array.isArray(memos)) {
+    return sendError(res, 400, '`memos` must be an array');
+  }
+  if (progress !== undefined && !isPlainObject(progress)) {
+    return sendError(res, 400, '`progress` must be an object');
+  }
+  if (data !== undefined && !isPlainObject(data)) {
+    return sendError(res, 400, '`data` must be an object');
+  }
+  if (createdAt !== undefined && typeof createdAt !== 'string') {
+    return sendError(res, 400, '`createdAt` must be a string');
+  }
+  if (updatedAt !== undefined && typeof updatedAt !== 'string') {
+    return sendError(res, 400, '`updatedAt` must be a string');
+  }
+
+  return next();
+};
+
+const requireStringField =
+  (field, { allowEmpty = false } = {}) =>
+  (req, res, next) => {
+    if (!isPlainObject(req.body)) {
+      return sendError(res, 400, 'Body must be a JSON object');
+    }
+
+    const value = req.body[field];
+    if (typeof value !== 'string') {
+      return sendError(res, 400, `\`${field}\` must be a string`);
+    }
+    if (!allowEmpty && value.trim().length === 0) {
+      return sendError(res, 400, `\`${field}\` is required`);
+    }
+    return next();
+  };
+
+const validateMemoBody = (req, res, next) => {
+  if (!isPlainObject(req.body)) {
+    return sendError(res, 400, 'Body must be a JSON object');
+  }
+
+  const { title, content } = req.body;
+  if (title !== undefined && typeof title !== 'string') {
+    return sendError(res, 400, '`title` must be a string');
+  }
+  if (content !== undefined && typeof content !== 'string') {
+    return sendError(res, 400, '`content` must be a string');
+  }
+
+  return next();
+};
+
+const validateBackupRestoreBody = (req, res, next) => {
+  const projects = req.body;
+  if (!Array.isArray(projects)) {
+    return sendError(res, 400, 'Invalid backup data');
+  }
+  if (!projects.every((p) => isPlainObject(p))) {
+    return sendError(res, 400, 'Invalid backup data');
+  }
+  return next();
 };
 
 // DB Row -> 프론트에서 쓰는 프로젝트 형태
@@ -102,6 +229,7 @@ const PORT = process.env.PORT || 4000;
 const API_KEY =
   process.env.API_KEY || process.env.ESTIMATE_TOOL_API_KEY || null;
 
+app.disable('x-powered-by');
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -132,7 +260,7 @@ app.use((req, res, next) => {
     return next();
   }
 
-  return res.status(401).json({ error: 'Unauthorized' });
+  return sendError(res, 401, 'Unauthorized');
 });
 
 // 2. API Key Verification
@@ -149,7 +277,11 @@ app.get('/api/projects', (req, res) => {
 });
 
 // 4. 프로젝트 생성
-app.post('/api/projects', (req, res) => {
+app.post(
+  '/api/projects',
+  requireJsonObjectBody,
+  validateProjectBody,
+  (req, res) => {
   const dbProject = buildDbFieldsFromProject(req.body || {});
 
   const stmt = db.prepare(`
@@ -160,7 +292,8 @@ app.post('/api/projects', (req, res) => {
   stmt.run(dbProject);
 
   res.json({ success: true, id: dbProject.id });
-});
+},
+);
 
 // 5. 프로젝트 상세 조회
 app.get('/api/projects/:id', (req, res) => {
@@ -176,7 +309,11 @@ app.get('/api/projects/:id', (req, res) => {
 });
 
 // 6. 프로젝트 수정
-app.put('/api/projects/:id', (req, res) => {
+app.put(
+  '/api/projects/:id',
+  requireJsonObjectBody,
+  validateProjectBody,
+  (req, res) => {
   const selectStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
   const row = selectStmt.get(req.params.id);
 
@@ -209,7 +346,8 @@ app.put('/api/projects/:id', (req, res) => {
 
   updateStmt.run(dbProject);
   res.json({ success: true });
-});
+},
+);
 
 // 7. 프로젝트 삭제
 app.delete('/api/projects/:id', (req, res) => {
@@ -221,7 +359,7 @@ app.delete('/api/projects/:id', (req, res) => {
 // --- 리비전 API ---
 
 // 8. 리비전 추가
-app.post('/api/projects/:id/revisions', (req, res) => {
+app.post('/api/projects/:id/revisions', requireJsonObjectBody, (req, res) => {
   const stmt = db.prepare('SELECT revisions FROM projects WHERE id = ?');
   const row = stmt.get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -248,6 +386,7 @@ app.post('/api/projects/:id/revisions', (req, res) => {
 // 9. 리비전 수정
 app.put(
   '/api/projects/:projectId/revisions/:revisionId',
+  requireJsonObjectBody,
   (req, res) => {
     const stmt = db.prepare(
       'SELECT revisions FROM projects WHERE id = ?',
@@ -298,7 +437,11 @@ app.delete(
 // --- 상태/진행 API ---
 
 // 10. 상태 업데이트
-app.put('/api/projects/:id/status', (req, res) => {
+app.put(
+  '/api/projects/:id/status',
+  requireJsonObjectBody,
+  requireStringField('status', { allowEmpty: true }),
+  (req, res) => {
   const stmt = db.prepare('SELECT data FROM projects WHERE id = ?');
   const row = stmt.get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -317,10 +460,15 @@ app.put('/api/projects/:id/status', (req, res) => {
 
   // 업데이트된 status 반환
   res.json({ success: true, status: data.status });
-});
+},
+);
 
 // 11. 진행 단계 업데이트 (토글 방식)
-app.put('/api/projects/:id/progress', (req, res) => {
+app.put(
+  '/api/projects/:id/progress',
+  requireJsonObjectBody,
+  requireStringField('stage'),
+  (req, res) => {
   const stmt = db.prepare(
     'SELECT progress FROM projects WHERE id = ?',
   );
@@ -348,12 +496,17 @@ app.put('/api/projects/:id/progress', (req, res) => {
 
   // 업데이트된 progress 반환
   res.json({ success: true, progress });
-});
+},
+);
 
 // --- 메모 API ---
 
 // 12. 메모 생성
-app.post('/api/projects/:id/memos', (req, res) => {
+app.post(
+  '/api/projects/:id/memos',
+  requireJsonObjectBody,
+  validateMemoBody,
+  (req, res) => {
   const stmt = db.prepare('SELECT memos FROM projects WHERE id = ?');
   const row = stmt.get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -375,11 +528,14 @@ app.post('/api/projects/:id/memos', (req, res) => {
     req.params.id,
   );
   res.json(newMemo);
-});
+},
+);
 
 // 13. 메모 수정
 app.put(
   '/api/projects/:projectId/memos/:memoId',
+  requireJsonObjectBody,
+  validateMemoBody,
   (req, res) => {
     const stmt = db.prepare('SELECT memos FROM projects WHERE id = ?');
     const row = stmt.get(req.params.projectId);
@@ -436,11 +592,8 @@ app.get('/api/backup/projects', (req, res) => {
 });
 
 // 16. 백업 복원
-app.post('/api/backup/projects', (req, res) => {
+app.post('/api/backup/projects', validateBackupRestoreBody, (req, res) => {
   const projects = req.body;
-  if (!Array.isArray(projects)) {
-    return res.status(400).json({ error: 'Invalid backup data' });
-  }
 
   const insertStmt = db.prepare(`
     INSERT OR REPLACE INTO projects (id, name, client, data, revisions, memos, progress, createdAt, updatedAt)
@@ -458,8 +611,26 @@ app.post('/api/backup/projects', (req, res) => {
   res.json({ success: true, count: projects.length });
 });
 
+app.use((req, res) => sendError(res, 404, 'Not found'));
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  if (err && err.type === 'entity.parse.failed') {
+    return sendError(res, 400, 'Malformed JSON');
+  }
+
+  console.error(err);
+  return sendError(res, 500, 'Internal server error');
+});
+
 // --- 서버 실행 ---
-app.listen(PORT, () => {
+app.listen(PORT, (err) => {
+  if (err) {
+    console.error('Failed to start backend server:', err);
+    process.exit(1);
+  }
   console.log(`Backend server running on http://localhost:${PORT}`);
   console.log('Database: SQLite (data.db)');
 });

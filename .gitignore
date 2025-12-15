@@ -43,9 +43,12 @@ backend/.env
 backend/node-lts.msi
 backend/*.db
 backend/db.json
+backend/프로젝트목록_2025-12-15.xlsx
+backend/send-db-email.log
 
 # Nested App
 switchgear-estimate-app/
+switchgear-estimate-app(Old)/
 
 # Backup files
 *.backup.js
