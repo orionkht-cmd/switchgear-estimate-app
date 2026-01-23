@@ -1,6 +1,6 @@
 const DEFAULT_BACKENDS = [
-  'https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net:8443/estimate',
-  'https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net/estimate'
+  'https://marisa-server.tail5c2348.ts.net/estimate',
+  'https://marisa-server.tail5c2348.ts.net:8443/estimate'
 ];
 
 let activeFallbackIndex = 0;
