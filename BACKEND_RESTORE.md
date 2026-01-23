@@ -115,7 +115,7 @@ node server.js
 tailscale serve --bg --set-path /estimate http://localhost:4000
 ```
 이렇게 하면 주소는 다음과 같이 됩니다:
-`https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net/estimate`
+`https://marisa-server.tail5c2348.ts.net/estimate`
 
 ### 방법 B: 그냥 전체 다 열기
 만약 `risk` 서비스가 443 포트를 독점하고 있지 않다면:
@@ -135,7 +135,7 @@ tailscale funnel 4000
 
 ```javascript
 // 예시 (방법 A 사용 시)
-return 'https://dlckdgn-nucboxg3-plus.tail5c2348.ts.net/estimate';
+return 'https://marisa-server.tail5c2348.ts.net/estimate';
 ```
 
 3. 변경 사항 저장 및 배포 (GitHub Push)
