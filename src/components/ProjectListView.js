@@ -30,6 +30,17 @@ const ProjectListView = ({
   selectedCompany,
 }) => {
   const hasProjects = projects.length > 0;
+  const fixedCellClass =
+    'px-3 py-3 text-center whitespace-nowrap border-r border-slate-100';
+  const ellipsisTextClass =
+    'block w-full overflow-hidden text-ellipsis whitespace-nowrap';
+  const openProjectDetail = (project) => onOpenDetail(project);
+  const handleRowKeyDown = (event, project) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openProjectDetail(project);
+    }
+  };
 
   if (!hasProjects) {
     return (
@@ -59,68 +70,82 @@ const ProjectListView = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden animate-fade-in flex flex-col h-full">
-      <div className="overflow-auto flex-1">
-        <table className="min-w-[1680px] w-full text-sm text-left">
+      <div className="overflow-x-auto overflow-y-auto flex-1">
+        <table className="min-w-[1460px] w-full table-fixed text-sm text-left">
+          <colgroup>
+            <col className="w-[100px]" />
+            <col className="w-[100px]" />
+            <col className="w-[100px]" />
+            <col className="w-[170px]" />
+            <col className="w-[70px]" />
+            <col />
+            <col />
+            <col className="w-[84px]" />
+            <col className="w-[150px]" />
+            <col className="w-[90px]" />
+            <col />
+            <col />
+            <col />
+          </colgroup>
           <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wide text-slate-500">
             <tr>
               <th
-                className="px-3 py-3 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 w-[110px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                className="px-3 py-3 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 w-[100px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('estimateDate')}
               >
                 견적일
                 <SortIcon columnKey="estimateDate" sortConfig={sortConfig} />
               </th>
-              <th className="px-3 py-3 text-center sticky left-[110px] z-30 bg-slate-50 border-r border-slate-200 w-[110px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
                 납품기한
               </th>
-              <th className="px-3 py-3 text-center sticky left-[220px] z-30 bg-slate-50 border-r border-slate-200 w-[110px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
                 준공기한
               </th>
-              <th className="px-3 py-3 text-center sticky left-[330px] z-30 bg-slate-50 border-r border-slate-200 w-[190px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[300px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
                 계약번호
               </th>
-              <th className="px-3 py-3 text-center sticky left-[520px] z-30 bg-slate-50 border-r border-slate-200 w-[110px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
                 품명
               </th>
-              <th className="px-4 py-3 text-center sticky left-[630px] z-30 bg-slate-50 border-r border-slate-200 w-[150px] whitespace-nowrap">
+              <th className="px-4 py-3 text-center whitespace-nowrap">
                 수요기관
               </th>
-              <th className="px-4 py-3 text-center sticky left-[780px] z-30 bg-slate-50 border-r border-slate-200 w-[150px] whitespace-nowrap">
+              <th className="px-4 py-3 text-center whitespace-nowrap">
                 발주부서
               </th>
               <th
-                className="px-3 py-3 text-center sticky left-[930px] z-30 bg-slate-50 border-r border-slate-200 w-[84px] whitespace-nowrap"
+                className="px-3 py-3 text-center whitespace-nowrap"
                 onClick={() => onSort('status')}
               >
                 상태
                 <SortIcon columnKey="status" sortConfig={sortConfig} />
               </th>
               <th
-                className="px-5 py-3 text-right sticky left-[1014px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                className="px-4 py-3 text-right cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('contractAmount')}
               >
                 금액
                 <SortIcon columnKey="contractAmount" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 text-center sticky left-[1184px] z-30 bg-slate-50 border-r border-slate-200 w-[110px] whitespace-nowrap">
+              <th className="px-4 py-3 text-center w-[90px] whitespace-nowrap">
                 계약방법
               </th>
               <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100 min-w-[180px] whitespace-nowrap"
+                className="px-4 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('name')}
               >
                 사업명
                 <SortIcon columnKey="name" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 w-[110px] whitespace-nowrap">소속대장</th>
+              <th className="px-4 py-3 whitespace-nowrap">소속대장</th>
               <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100 w-[150px] whitespace-nowrap"
+                className="px-4 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('manager')}
               >
                 영업자/담당자
                 <SortIcon columnKey="manager" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 text-center w-[80px] whitespace-nowrap">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -143,39 +168,63 @@ const ProjectListView = ({
               return (
                 <tr
                   key={p.id}
-                  className="hover:bg-slate-50 transition-colors text-sm"
+                  className="group cursor-pointer hover:bg-slate-50 transition-colors text-sm"
+                  onClick={() => openProjectDetail(p)}
+                  onKeyDown={(event) => handleRowKeyDown(event, p)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${p.name || '프로젝트'} 상세 보기`}
                 >
-                  <td className="px-3 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 whitespace-nowrap">
+                  <td
+                    className={`${fixedCellClass} sticky left-0 z-10 bg-white group-hover:bg-slate-50`}
+                  >
                     <span className="text-slate-600 text-sm whitespace-nowrap">
                       {p.estimateDate || '-'}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-center sticky left-[110px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 whitespace-nowrap">
+                  <td
+                    className={`${fixedCellClass} sticky left-[100px] z-10 bg-white group-hover:bg-slate-50`}
+                  >
                     {p.deliveryDeadline || '-'}
                   </td>
-                  <td className="px-3 py-3 text-center sticky left-[220px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 whitespace-nowrap">
+                  <td
+                    className={`${fixedCellClass} sticky left-[200px] z-10 bg-white group-hover:bg-slate-50`}
+                  >
                     {p.completionDeadline || '-'}
                   </td>
-                  <td className="px-3 py-3 text-center sticky left-[330px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 text-slate-600 whitespace-nowrap">
+                  <td
+                    className={`${fixedCellClass} sticky left-[300px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                  >
                     {p.contractNumber || '-'}
                   </td>
-                  <td className="px-3 py-3 text-center sticky left-[520px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 text-slate-600 whitespace-nowrap">
+                  <td
+                    className={`${fixedCellClass} sticky left-[470px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                  >
                     {p.productType || '-'}
                   </td>
-                  <td className="px-4 py-3 text-center sticky left-[630px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
-                    <span className="text-slate-600 text-sm truncate max-w-[130px] block" title={p.client}>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`${ellipsisTextClass} text-slate-600 text-sm`}
+                      title={p.client}
+                    >
                       {p.client || '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center sticky left-[780px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100">
-                    <span className="text-slate-600 text-sm truncate max-w-[130px] block" title={p.orderingDepartment}>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`${ellipsisTextClass} text-slate-600 text-sm`}
+                      title={p.orderingDepartment}
+                    >
                       {p.orderingDepartment || '-'}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-center sticky left-[930px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 whitespace-nowrap">
+                  <td className="px-3 py-3 text-center whitespace-nowrap">
                     <StatusBadge status={p.status} />
+                    <span className="mt-1 block text-xs text-slate-400">
+                      {doneCount}/5
+                    </span>
                   </td>
-                  <td className="px-5 py-3 text-right font-bold text-slate-900 sticky left-[1014px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 whitespace-nowrap">
+                  <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
                     {formatCurrency(displayAmount)}
                     {p.contractAmount > 0 && p.isCostConfirmed && (
                       <span className="text-xs text-green-600 block">
@@ -183,34 +232,36 @@ const ProjectListView = ({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center sticky left-[1184px] z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 italic text-slate-500 whitespace-nowrap">
+                  <td className="px-4 py-3 text-center italic text-slate-500 whitespace-nowrap">
                     {p.contractMethod || '-'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-bold text-slate-800 truncate max-w-[260px]" title={p.name}>
+                  <td className="px-4 py-3 overflow-hidden">
+                    <div
+                      className={`${ellipsisTextClass} font-bold text-slate-800`}
+                      title={p.name}
+                    >
                       {p.name}
                     </div>
-                    <div className="text-xs text-slate-500 truncate max-w-[260px]" title={p.client}>
+                    <div
+                      className={`${ellipsisTextClass} text-xs text-slate-500`}
+                      title={p.client}
+                    >
                       {p.client || '-'}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-500 truncate">
-                    {p.ledgerName}
+                  <td className="px-4 py-3 text-slate-500 overflow-hidden">
+                    <span className={ellipsisTextClass} title={p.ledgerName}>
+                      {p.ledgerName || '-'}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 truncate">
-                    <span className="font-medium">{p.salesRep}</span>
-                    <span className="text-slate-400 mx-1">/</span>
-                    <span>{p.manager}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => onOpenDetail(p)}
-                      className="text-blue-600 hover:underline font-medium"
+                  <td className="px-4 py-3 text-slate-600 overflow-hidden">
+                    <span
+                      className={ellipsisTextClass}
+                      title={[p.salesRep, p.manager].filter(Boolean).join(' / ')}
                     >
-                      상세
-                    </button>
-                    <span className="text-xs text-slate-400 block">
-                      {doneCount}/5
+                      <span className="font-medium">{p.salesRep || '-'}</span>
+                      <span className="text-slate-400 mx-1">/</span>
+                      <span>{p.manager || '-'}</span>
                     </span>
                   </td>
                 </tr>
