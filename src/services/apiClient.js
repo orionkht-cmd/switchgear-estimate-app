@@ -5,6 +5,19 @@ const DEFAULT_BACKENDS = [
 
 let activeFallbackIndex = 0;
 
+const decodeStoredApiKey = (value) => {
+  if (!value) return '';
+  if (typeof window === 'undefined' || typeof window.atob !== 'function') {
+    return value;
+  }
+
+  try {
+    return window.atob(value);
+  } catch (e) {
+    return value;
+  }
+};
+
 const getStoredBaseUrl = () => {
   if (typeof window !== 'undefined') {
     try {
@@ -28,6 +41,19 @@ export const getApiBaseUrl = () => {
   return base.replace(/\/+$/, '');
 };
 
+export const getStoredApiKey = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    const storedKey = window.localStorage.getItem('apiKey') || '';
+    return decodeStoredApiKey(storedKey);
+  } catch (e) {
+    return '';
+  }
+};
+
 export const apiRequest = async (path, options = {}) => {
   const isDefaultMode = !process.env.REACT_APP_API_BASE_URL && 
                         (typeof window === 'undefined' || !window.__backend_base_url);
@@ -38,7 +64,7 @@ export const apiRequest = async (path, options = {}) => {
 
   if (typeof window !== 'undefined') {
     try {
-      const apiKey = window.localStorage.getItem('apiKey');
+      const apiKey = getStoredApiKey();
       if (apiKey && !headers['x-api-key']) {
         headers['x-api-key'] = apiKey;
       }

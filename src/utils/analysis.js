@@ -25,7 +25,7 @@ export const analyzeProject = (project) => {
 
   const lines = [];
 
-  lines.push(`프로젝트명: ${project.name || '-'}`);
+  lines.push(`사업명: ${project.name || '-'}`);
   lines.push(
     `계약금액: ${formatCurrency(
       baseAmount
@@ -58,4 +58,3 @@ export const analyzeProject = (project) => {
 
   return lines.join('\n');
 };
-

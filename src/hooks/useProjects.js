@@ -1,11 +1,35 @@
 import { useState, useEffect, useMemo } from 'react';
+import useSWR from 'swr';
 import { projectApi } from '../services/apiClient';
 import { getProjectYear } from '../utils/projectYear';
 
-export const useProjects = (user, setLoading) => {
-    const [projects, setProjects] = useState([]);
-    const [isConnected, setIsConnected] = useState(false);
+// --- LocalStorage Memory Cache ---
+let cachedProjects = null;
 
+const getLocalProjects = () => {
+    if (cachedProjects) return cachedProjects;
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage.getItem('offlineProjectsSnapshot');
+        if (raw) {
+            cachedProjects = JSON.parse(raw);
+            return cachedProjects;
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+};
+
+const setLocalProjects = (data) => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.setItem('offlineProjectsSnapshot', JSON.stringify(data));
+        cachedProjects = data;
+    } catch (e) { }
+};
+
+export const useProjects = (user, setLoading) => {
     // Search & Sort State
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState({
@@ -16,74 +40,33 @@ export const useProjects = (user, setLoading) => {
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedCompany, setSelectedCompany] = useState('all');
 
-    // --- Projects load ---
-    useEffect(() => {
-        if (!user) return;
-        let cancelled = false;
-
-        const load = async () => {
-            setLoading(true);
-            try {
-                const data = await projectApi.list();
-                if (cancelled) return;
-                setProjects(data || []);
-                setIsConnected(true);
-                if (typeof window !== 'undefined') {
-                    try {
-                        window.localStorage.setItem(
-                            'offlineProjectsSnapshot',
-                            JSON.stringify(data || []),
-                        );
-                    } catch (e) {
-                        // ignore storage errors
-                    }
-                }
-            } catch (error) {
-                console.error('API Error:', error);
-                if (!cancelled) {
-                    setIsConnected(false);
-                    let restored = false;
-                    if (typeof window !== 'undefined') {
-                        try {
-                            const raw =
-                                window.localStorage.getItem(
-                                    'offlineProjectsSnapshot',
-                                );
-                            if (raw) {
-                                const stored = JSON.parse(raw);
-                                if (Array.isArray(stored)) {
-                                    setProjects(stored);
-                                    restored = true;
-                                    alert(
-                                        '서버 연결 실패: 마지막으로 저장된 로컬 스냅샷을 불러왔습니다.',
-                                    );
-                                }
-                            }
-                        } catch (e) {
-                            // ignore parse errors
-                        }
-                    }
-                    if (!restored) {
-                        alert(
-                            '데이터 로드 실패: 서버 연결을 확인해주세요.',
-                        );
-                    }
-                }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
+    // --- SWR Data Fetching ---
+    const {
+        data: projects = [],
+        mutate: setProjects,
+        error,
+        isValidating
+    } = useSWR(
+        user ? '/api/projects' : null,
+        () => projectApi.list(),
+        {
+            revalidateOnFocus: false,
+            dedupingInterval: 2000,
+            fallbackData: getLocalProjects() || [],
+            onSuccess: (data) => {
+                setLocalProjects(data);
             }
-        };
+        }
+    );
 
-        load();
+    const isConnected = !error;
 
-        return () => {
-            cancelled = true;
-        };
-    }, [user, setLoading]);
+    // Sync loading state with App
+    useEffect(() => {
+        setLoading(isValidating && projects.length === 0);
+    }, [isValidating, projects.length, setLoading]);
 
-    // --- Derived values ---
+    // Derived values
     const projectYears = useMemo(() => {
         const years = new Set();
         projects.forEach((p) => {
@@ -133,27 +116,28 @@ export const useProjects = (user, setLoading) => {
         }
 
         if (sortConfig.key) {
+            const { key: sortKey, direction: sortDir } = sortConfig;
             data.sort((a, b) => {
-                let aValue = a[sortConfig.key];
-                let bValue = b[sortConfig.key];
+                let aValue = a[sortKey];
+                let bValue = b[sortKey];
 
-                if (sortConfig.key === 'amount') {
-                    aValue =
-                        a.revisions?.[a.revisions.length - 1]?.amount || 0;
-                    bValue =
-                        b.revisions?.[b.revisions.length - 1]?.amount || 0;
-                } else if (sortConfig.key === 'contractAmount') {
+                if (sortKey === 'amount') {
+                    const aRev = a.revisions;
+                    const bRev = b.revisions;
+                    aValue = aRev?.[aRev.length - 1]?.amount || 0;
+                    bValue = bRev?.[bRev.length - 1]?.amount || 0;
+                } else if (sortKey === 'contractAmount') {
                     aValue = a.contractAmount || 0;
                     bValue = b.contractAmount || 0;
-                } else if (sortConfig.key === 'manager') {
+                } else if (sortKey === 'manager') {
                     aValue = (a.salesRep || '') + (a.manager || '');
                     bValue = (b.salesRep || '') + (b.manager || '');
                 }
 
                 if (aValue < bValue)
-                    return sortConfig.direction === 'asc' ? -1 : 1;
+                    return sortDir === 'asc' ? -1 : 1;
                 if (aValue > bValue)
-                    return sortConfig.direction === 'asc' ? 1 : -1;
+                    return sortDir === 'asc' ? 1 : -1;
                 return 0;
             });
         }
@@ -194,3 +178,4 @@ export const useProjects = (user, setLoading) => {
         filteredAndSortedProjects,
     };
 };
+

@@ -5,6 +5,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // backend/.env, 루트 .env 둘 다 시도해서 읽기 (backend/.env 우선)
 const backendEnvPath = path.join(__dirname, '.env');
@@ -124,20 +126,20 @@ const validateProjectBody = (req, res, next) => {
 
 const requireStringField =
   (field, { allowEmpty = false } = {}) =>
-  (req, res, next) => {
-    if (!isPlainObject(req.body)) {
-      return sendError(res, 400, 'Body must be a JSON object');
-    }
+    (req, res, next) => {
+      if (!isPlainObject(req.body)) {
+        return sendError(res, 400, 'Body must be a JSON object');
+      }
 
-    const value = req.body[field];
-    if (typeof value !== 'string') {
-      return sendError(res, 400, `\`${field}\` must be a string`);
-    }
-    if (!allowEmpty && value.trim().length === 0) {
-      return sendError(res, 400, `\`${field}\` is required`);
-    }
-    return next();
-  };
+      const value = req.body[field];
+      if (typeof value !== 'string') {
+        return sendError(res, 400, `\`${field}\` must be a string`);
+      }
+      if (!allowEmpty && value.trim().length === 0) {
+        return sendError(res, 400, `\`${field}\` is required`);
+      }
+      return next();
+    };
 
 const validateMemoBody = (req, res, next) => {
   if (!isPlainObject(req.body)) {
@@ -228,9 +230,33 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const API_KEY =
   process.env.API_KEY || process.env.ESTIMATE_TOOL_API_KEY || null;
+const corsOptions = {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-api-key'],
+  maxAge: 86400,
+};
 
 app.disable('x-powered-by');
-app.use(cors());
+
+// 보안 헤더 설정
+app.use(helmet());
+
+// DoS 방지: 서비스의 특성에 맞게 조정 필요 (예: 15분당 100회)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500, // 개발 편의를 위해 일단 넉넉하게 설정
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+
+// Allow Private Network Access preflight (Chrome/Edge).
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
 
 // --- 기본 페이지 ---
@@ -253,6 +279,7 @@ app.get('/api/health', (req, res) =>
 
 // API Key 미들웨어 (health 제외)
 app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
   if (!API_KEY) return next();
 
   const headerKey = req.headers['x-api-key'];
@@ -282,17 +309,17 @@ app.post(
   requireJsonObjectBody,
   validateProjectBody,
   (req, res) => {
-  const dbProject = buildDbFieldsFromProject(req.body || {});
+    const dbProject = buildDbFieldsFromProject(req.body || {});
 
-  const stmt = db.prepare(`
+    const stmt = db.prepare(`
     INSERT INTO projects (id, name, client, data, revisions, memos, progress, createdAt, updatedAt)
     VALUES (@id, @name, @client, @data, @revisions, @memos, @progress, @createdAt, @updatedAt)
   `);
 
-  stmt.run(dbProject);
+    stmt.run(dbProject);
 
-  res.json({ success: true, id: dbProject.id });
-},
+    res.json({ success: true, id: dbProject.id });
+  },
 );
 
 // 5. 프로젝트 상세 조회
@@ -314,24 +341,24 @@ app.put(
   requireJsonObjectBody,
   validateProjectBody,
   (req, res) => {
-  const selectStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
-  const row = selectStmt.get(req.params.id);
+    const selectStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
+    const row = selectStmt.get(req.params.id);
 
-  if (!row) {
-    return res.status(404).json({ error: 'Not found' });
-  }
+    if (!row) {
+      return res.status(404).json({ error: 'Not found' });
+    }
 
-  const existing = mapRowToProject(row);
-  const updated = {
-    ...existing,
-    ...req.body,
-    id: existing.id,
-    updatedAt: new Date().toISOString(),
-  };
+    const existing = mapRowToProject(row);
+    const updated = {
+      ...existing,
+      ...req.body,
+      id: existing.id,
+      updatedAt: new Date().toISOString(),
+    };
 
-  const dbProject = buildDbFieldsFromProject(updated);
+    const dbProject = buildDbFieldsFromProject(updated);
 
-  const updateStmt = db.prepare(`
+    const updateStmt = db.prepare(`
     UPDATE projects
     SET name = @name,
         client = @client,
@@ -344,9 +371,9 @@ app.put(
     WHERE id = @id
   `);
 
-  updateStmt.run(dbProject);
-  res.json({ success: true });
-},
+    updateStmt.run(dbProject);
+    res.json({ success: true });
+  },
 );
 
 // 7. 프로젝트 삭제
@@ -442,25 +469,25 @@ app.put(
   requireJsonObjectBody,
   requireStringField('status', { allowEmpty: true }),
   (req, res) => {
-  const stmt = db.prepare('SELECT data FROM projects WHERE id = ?');
-  const row = stmt.get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
+    const stmt = db.prepare('SELECT data FROM projects WHERE id = ?');
+    const row = stmt.get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const data = safeParseJson(row.data, {});
-  data.status = req.body.status;
+    const data = safeParseJson(row.data, {});
+    data.status = req.body.status;
 
-  const updateStmt = db.prepare(
-    'UPDATE projects SET data = ?, updatedAt = ? WHERE id = ?',
-  );
-  updateStmt.run(
-    JSON.stringify(data),
-    new Date().toISOString(),
-    req.params.id,
-  );
+    const updateStmt = db.prepare(
+      'UPDATE projects SET data = ?, updatedAt = ? WHERE id = ?',
+    );
+    updateStmt.run(
+      JSON.stringify(data),
+      new Date().toISOString(),
+      req.params.id,
+    );
 
-  // 업데이트된 status 반환
-  res.json({ success: true, status: data.status });
-},
+    // 업데이트된 status 반환
+    res.json({ success: true, status: data.status });
+  },
 );
 
 // 11. 진행 단계 업데이트 (토글 방식)
@@ -469,34 +496,34 @@ app.put(
   requireJsonObjectBody,
   requireStringField('stage'),
   (req, res) => {
-  const stmt = db.prepare(
-    'SELECT progress FROM projects WHERE id = ?',
-  );
-  const row = stmt.get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
+    const stmt = db.prepare(
+      'SELECT progress FROM projects WHERE id = ?',
+    );
+    const row = stmt.get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const progress = safeParseJson(row.progress, {});
-  const stage = req.body.stage;
+    const progress = safeParseJson(row.progress, {});
+    const stage = req.body.stage;
 
-  // 토글: 이미 있으면 해제, 없으면 설정
-  if (progress[stage]) {
-    delete progress[stage];
-  } else {
-    progress[stage] = new Date().toISOString();
-  }
+    // 토글: 이미 있으면 해제, 없으면 설정
+    if (progress[stage]) {
+      delete progress[stage];
+    } else {
+      progress[stage] = new Date().toISOString();
+    }
 
-  const updateStmt = db.prepare(
-    'UPDATE projects SET progress = ?, updatedAt = ? WHERE id = ?',
-  );
-  updateStmt.run(
-    JSON.stringify(progress),
-    new Date().toISOString(),
-    req.params.id,
-  );
+    const updateStmt = db.prepare(
+      'UPDATE projects SET progress = ?, updatedAt = ? WHERE id = ?',
+    );
+    updateStmt.run(
+      JSON.stringify(progress),
+      new Date().toISOString(),
+      req.params.id,
+    );
 
-  // 업데이트된 progress 반환
-  res.json({ success: true, progress });
-},
+    // 업데이트된 progress 반환
+    res.json({ success: true, progress });
+  },
 );
 
 // --- 메모 API ---
@@ -507,28 +534,28 @@ app.post(
   requireJsonObjectBody,
   validateMemoBody,
   (req, res) => {
-  const stmt = db.prepare('SELECT memos FROM projects WHERE id = ?');
-  const row = stmt.get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
+    const stmt = db.prepare('SELECT memos FROM projects WHERE id = ?');
+    const row = stmt.get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
 
-  const memos = safeParseJson(row.memos, []);
-  const newMemo = {
-    id: Date.now().toString(),
-    ...req.body,
-    createdAt: new Date().toISOString(),
-  };
-  memos.push(newMemo);
+    const memos = safeParseJson(row.memos, []);
+    const newMemo = {
+      id: Date.now().toString(),
+      ...req.body,
+      createdAt: new Date().toISOString(),
+    };
+    memos.push(newMemo);
 
-  const updateStmt = db.prepare(
-    'UPDATE projects SET memos = ?, updatedAt = ? WHERE id = ?',
-  );
-  updateStmt.run(
-    JSON.stringify(memos),
-    new Date().toISOString(),
-    req.params.id,
-  );
-  res.json(newMemo);
-},
+    const updateStmt = db.prepare(
+      'UPDATE projects SET memos = ?, updatedAt = ? WHERE id = ?',
+    );
+    updateStmt.run(
+      JSON.stringify(memos),
+      new Date().toISOString(),
+      req.params.id,
+    );
+    res.json(newMemo);
+  },
 );
 
 // 13. 메모 수정

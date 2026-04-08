@@ -1,5 +1,58 @@
 import React from 'react';
 
+const PRODUCT_TYPE_OPTIONS = [
+  '수배전반',
+  'MCC',
+  '분전반',
+  '자동제어',
+  '용역',
+  '기타',
+];
+
+function digitsOnly(v) {
+  return (v || '').replace(/[^0-9]/g, '');
+}
+
+function isISODate10(v) {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+function isValidYMD(y, m, d) {
+  const yy = Number(y);
+  const mm = Number(m);
+  const dd = Number(d);
+  if (!Number.isInteger(yy) || !Number.isInteger(mm) || !Number.isInteger(dd)) return false;
+  if (mm < 1 || mm > 12) return false;
+  if (dd < 1 || dd > 31) return false;
+
+  // UTC 기준으로 검증 (로컬 타임존 영향 최소화)
+  const dt = new Date(Date.UTC(yy, mm - 1, dd));
+  return (
+    dt.getUTCFullYear() === yy &&
+    dt.getUTCMonth() === mm - 1 &&
+    dt.getUTCDate() === dd
+  );
+}
+
+function formatDigitsToISO(digits) {
+  // digits: 'YYYYMMDD' or 'YYMMDD'
+  if (digits.length === 8) {
+    const y = digits.slice(0, 4);
+    const m = digits.slice(4, 6);
+    const d = digits.slice(6, 8);
+    if (!isValidYMD(y, m, d)) return { ok: false, value: `${y}-${m}-${d}` };
+    return { ok: true, value: `${y}-${m}-${d}` };
+  }
+  if (digits.length === 6) {
+    const y = '20' + digits.slice(0, 2);
+    const m = digits.slice(2, 4);
+    const d = digits.slice(4, 6);
+    if (!isValidYMD(y, m, d)) return { ok: false, value: `${y}-${m}-${d}` };
+    return { ok: true, value: `${y}-${m}-${d}` };
+  }
+  return { ok: false, value: digits };
+}
+
 const ProjectFormModal = ({
   isOpen,
   isEditMode,
@@ -9,15 +62,30 @@ const ProjectFormModal = ({
   onSave,
   onClose,
 }) => {
+  const [lockedDate, setLockedDate] = React.useState('');
+  const [dateError, setDateError] = React.useState('');
+
+  // 모달 열릴 때 "원본 날짜" 고정 (잠금 판정에 사용)
+  React.useEffect(() => {
+    if (isOpen) {
+      setLockedDate(projectForm.estimateDate || '');
+      setDateError('');
+    } else {
+      setLockedDate('');
+      setDateError('');
+    }
+  }, [isOpen, projectForm.estimateDate]); // estimateDate가 바뀔 때가 아니라 모달이 '열릴 때'의 값을 잡아야 함
+
+  const isDateLocked = isEditMode && isISODate10(lockedDate);
+
   // Keyboard Shortcuts
   React.useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (e.key === 'Escape') onClose();
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         onSave();
       }
@@ -27,39 +95,70 @@ const ProjectFormModal = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onSave, onClose]);
 
+  // (옵션) 모달 열릴 때 body 스크롤 잠금
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   const handleEnterNavigation = (e) => {
-    if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'TEXTAREA') {
-      e.preventDefault();
-      const form = e.currentTarget;
-      const elements = Array.from(form.querySelectorAll('input, select, button, textarea'));
-      const index = elements.indexOf(e.target);
-      if (index > -1 && index < elements.length - 1) {
-        elements[index + 1].focus();
-      }
+    if (e.key !== 'Enter') return;
+
+    const tag = e.target.tagName;
+    // select에서 Enter는 UX가 애매해서 제외(원하면 제거 가능)
+    if (tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    e.preventDefault();
+
+    const root = e.currentTarget;
+    const elements = Array.from(
+      root.querySelectorAll('input, select, button, textarea')
+    ).filter((el) => !el.disabled && el.tabIndex !== -1);
+
+    const index = elements.indexOf(e.target);
+    if (index > -1 && index < elements.length - 1) {
+      elements[index + 1].focus();
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-md p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-bold mb-4">
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onMouseDown={(e) => {
+        // (옵션) 바깥 클릭 닫기
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-xl w-full max-w-md p-6 animate-scale-in max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-modal-title"
+      >
+        <h3 id="project-modal-title" className="text-lg font-bold mb-4">
           {isEditMode ? '프로젝트 정보 수정' : '신규 프로젝트 등록'}
         </h3>
+
         <div className="space-y-3" onKeyDown={handleEnterNavigation}>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
+            <label htmlFor="project-ledger-name" className="text-xs text-slate-500 block mb-1">
               소속 대장 (회사 선택)
             </label>
             <select
+              id="project-ledger-name"
               className="w-full border p-2 rounded bg-slate-50 font-bold"
               value={projectForm.ledgerName}
               onChange={(e) =>
-                setProjectForm({
-                  ...projectForm,
+                setProjectForm((prev) => ({
+                  ...prev,
                   ledgerName: e.target.value,
-                })
+                }))
               }
             >
               {companiesList.map((company) => (
@@ -69,106 +168,253 @@ const ProjectFormModal = ({
               ))}
             </select>
           </div>
+
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
+            <label htmlFor="project-id-display" className="text-xs text-slate-500 block mb-1">
               프로젝트 번호
             </label>
             <input
+              id="project-id-display"
               className="w-full border p-2 rounded bg-slate-50"
               value={projectForm.projectIdDisplay}
               onChange={(e) =>
-                setProjectForm({
-                  ...projectForm,
+                setProjectForm((prev) => ({
+                  ...prev,
                   projectIdDisplay: e.target.value,
-                })
+                }))
               }
             />
           </div>
+
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
-              프로젝트명
+            <label htmlFor="project-estimate-date" className="text-xs text-slate-500 block mb-1">
+              견적일 (숫자 6자리 혹은 8자리 입력 가능){' '}
+              {isDateLocked && (
+                <span className="text-orange-600 font-bold">(변경불가)</span>
+              )}
             </label>
+
             <input
+              id="project-estimate-date"
+              type="text"
+              className={`w-full border p-2 rounded bg-slate-50 ${dateError ? 'border-red-400' : ''
+                }`}
+              value={projectForm.estimateDate}
+              placeholder="예: 250101 또는 20250101"
+              onChange={(e) => {
+                let val = digitsOnly(e.target.value);
+                if (val.length > 8) val = val.slice(0, 8);
+
+                // 8자리 완성 시 즉시 ISO 포맷
+                if (val.length === 8) {
+                  const { ok, value } = formatDigitsToISO(val);
+                  setDateError(ok ? '' : '유효하지 않은 날짜예요.');
+                  setProjectForm((prev) => ({ ...prev, estimateDate: value }));
+                  return;
+                }
+
+                // 입력 중에는 숫자만 유지(6자리도 여기서는 포맷하지 않음)
+                setDateError('');
+                setProjectForm((prev) => ({ ...prev, estimateDate: val }));
+              }}
+              onBlur={(e) => {
+                // blur 시 6자리면 ISO 포맷 변환
+                const val = digitsOnly(e.target.value);
+                if (val.length === 6) {
+                  const { ok, value } = formatDigitsToISO(val);
+                  setDateError(ok ? '' : '유효하지 않은 날짜예요.');
+                  setProjectForm((prev) => ({ ...prev, estimateDate: value }));
+                } else if (val.length === 8) {
+                  // 혹시 숫자 8자리만 남아있을 때도 안전 처리
+                  const { ok, value } = formatDigitsToISO(val);
+                  setDateError(ok ? '' : '유효하지 않은 날짜예요.');
+                  setProjectForm((prev) => ({ ...prev, estimateDate: value }));
+                }
+              }}
+              disabled={isDateLocked}
+            />
+
+            {dateError && (
+              <p className="text-xs text-red-500 mt-1">{dateError}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="project-delivery-deadline" className="text-xs text-slate-500 block mb-1">
+                납품기한
+              </label>
+              <input
+                id="project-delivery-deadline"
+                type="date"
+                className="w-full border p-2 rounded"
+                value={projectForm.deliveryDeadline || ''}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    deliveryDeadline: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <label htmlFor="project-completion-deadline" className="text-xs text-slate-500 block mb-1">
+                준공기한
+              </label>
+              <input
+                id="project-completion-deadline"
+                type="date"
+                className="w-full border p-2 rounded"
+                value={projectForm.completionDeadline || ''}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    completionDeadline: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="project-contract-number" className="text-xs text-slate-500 block mb-1">
+                계약번호
+              </label>
+              <input
+                id="project-contract-number"
+                className="w-full border p-2 rounded"
+                value={projectForm.contractNumber || ''}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    contractNumber: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <label htmlFor="project-product-type" className="text-xs text-slate-500 block mb-1">품명</label>
+              <select
+                id="project-product-type"
+                className="w-full border p-2 rounded"
+                value={projectForm.productType || '수배전반'}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    productType: e.target.value,
+                  }))
+                }
+              >
+                {PRODUCT_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="project-ordering-department" className="text-xs text-slate-500 block mb-1">발주부서</label>
+            <input
+              id="project-ordering-department"
+              className="w-full border p-2 rounded"
+              value={projectForm.orderingDepartment}
+              onChange={(e) =>
+                setProjectForm((prev) => ({
+                  ...prev,
+                  orderingDepartment: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div>
+            <label htmlFor="project-name" className="text-xs text-slate-500 block mb-1">사업명</label>
+            <input
+              id="project-name"
               className="w-full border p-2 rounded"
               value={projectForm.name}
               onChange={(e) =>
-                setProjectForm({ ...projectForm, name: e.target.value })
+                setProjectForm((prev) => ({ ...prev, name: e.target.value }))
               }
             />
           </div>
+
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
-              발주처
-            </label>
+            <label htmlFor="project-client" className="text-xs text-slate-500 block mb-1">수요기관</label>
             <input
+              id="project-client"
               className="w-full border p-2 rounded"
               value={projectForm.client}
               onChange={(e) =>
-                setProjectForm({ ...projectForm, client: e.target.value })
+                setProjectForm((prev) => ({ ...prev, client: e.target.value }))
               }
             />
           </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-slate-500 block mb-1">
-                영업 담당
-              </label>
+              <label htmlFor="project-sales-rep" className="text-xs text-slate-500 block mb-1">영업자</label>
               <input
+                id="project-sales-rep"
                 className="w-full border p-2 rounded"
                 value={projectForm.salesRep}
                 onChange={(e) =>
-                  setProjectForm({
-                    ...projectForm,
+                  setProjectForm((prev) => ({
+                    ...prev,
                     salesRep: e.target.value,
-                  })
+                  }))
                 }
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">
-                설계/PM 담당
-              </label>
+              <label htmlFor="project-manager" className="text-xs text-slate-500 block mb-1">담당자</label>
               <input
+                id="project-manager"
                 className="w-full border p-2 rounded"
                 value={projectForm.manager}
                 onChange={(e) =>
-                  setProjectForm({
-                    ...projectForm,
+                  setProjectForm((prev) => ({
+                    ...prev,
                     manager: e.target.value,
-                  })
+                  }))
                 }
               />
             </div>
           </div>
+
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
+            <label htmlFor="project-contract-amount" className="text-xs text-slate-500 block mb-1">
               견적금액 (VAT포함)
             </label>
             <input
+              id="project-contract-amount"
               type="number"
               className="w-full border p-2 rounded"
               value={projectForm.contractAmount}
               onChange={(e) =>
-                setProjectForm({
-                  ...projectForm,
+                setProjectForm((prev) => ({
+                  ...prev,
                   contractAmount: e.target.value,
-                })
+                }))
               }
               placeholder="0"
             />
           </div>
+
           <div>
-            <label className="text-xs text-slate-500 block mb-1">
-              계약 방법
-            </label>
+            <label htmlFor="project-contract-method" className="text-xs text-slate-500 block mb-1">계약 방법</label>
             <select
+              id="project-contract-method"
               className="w-full border p-2 rounded"
               value={projectForm.contractMethod}
               onChange={(e) =>
-                setProjectForm({
-                  ...projectForm,
+                setProjectForm((prev) => ({
+                  ...prev,
                   contractMethod: e.target.value,
-                })
+                }))
               }
             >
               <option value="수의계약">수의계약</option>
@@ -179,16 +425,14 @@ const ProjectFormModal = ({
               <option value="기타">기타</option>
             </select>
           </div>
+
           <button
             onClick={onSave}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
           >
             {isEditMode ? '저장' : '등록'}
           </button>
-          <button
-            onClick={onClose}
-            className="w-full text-slate-500 py-2"
-          >
+          <button onClick={onClose} className="w-full text-slate-500 py-2">
             취소
           </button>
         </div>
@@ -198,4 +442,3 @@ const ProjectFormModal = ({
 };
 
 export default ProjectFormModal;
-

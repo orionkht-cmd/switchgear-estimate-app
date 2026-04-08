@@ -18,21 +18,29 @@ const PrintTemplate = ({ project }) => (
                 <table className="w-full text-sm">
                     <tbody>
                         <tr>
-                            <td className="py-1 text-gray-500 w-24">프로젝트명</td>
+                            <td className="py-1 text-gray-500 w-24">사업명</td>
                             <td className="font-bold">{project.name}</td>
                         </tr>
                         <tr>
-                            <td className="py-1 text-gray-500">발주처</td>
+                            <td className="py-1 text-gray-500">품명</td>
+                            <td>{project.productType || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td className="py-1 text-gray-500">수요기관</td>
                             <td>{project.client}</td>
+                        </tr>
+                        <tr>
+                            <td className="py-1 text-gray-500">계약번호</td>
+                            <td>{project.contractNumber || '-'}</td>
                         </tr>
                         <tr>
                             <td className="py-1 text-gray-500">소속대장</td>
                             <td>{project.ledgerName}</td>
                         </tr>
                         <tr>
-                            <td className="py-1 text-gray-500">담당자</td>
+                            <td className="py-1 text-gray-500">영업자/담당자</td>
                             <td>
-                                {project.salesRep} (영업) / {project.manager} (설계)
+                                {project.salesRep || '-'} / {project.manager || '-'}
                             </td>
                         </tr>
                     </tbody>
@@ -53,6 +61,14 @@ const PrintTemplate = ({ project }) => (
                         <tr>
                             <td className="py-1 text-gray-500">계약방법</td>
                             <td>{project.contractMethod}</td>
+                        </tr>
+                        <tr>
+                            <td className="py-1 text-gray-500">납품기한</td>
+                            <td>{project.deliveryDeadline || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td className="py-1 text-gray-500">준공기한</td>
+                            <td>{project.completionDeadline || '-'}</td>
                         </tr>
                         <tr>
                             <td className="py-1 text-gray-500">상태</td>

@@ -2,6 +2,10 @@ import React, { useMemo } from 'react';
 import { Globe, Building2 } from 'lucide-react';
 import { calculateStatsFromList } from '../utils/stats';
 
+const compactNumberFormatter = new Intl.NumberFormat('ko-KR', {
+  notation: 'compact',
+});
+
 const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
   const totalStats = useMemo(
     () => calculateStatsFromList(projects),
@@ -37,9 +41,7 @@ const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
           <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg">
             <p className="text-slate-400 text-sm font-medium">수주 총액</p>
             <p className="text-3xl font-bold mt-2">
-              {new Intl.NumberFormat('ko-KR', {
-                notation: 'compact',
-              }).format(totalStats.totalWonAmount)}
+              {compactNumberFormatter.format(totalStats.totalWonAmount)}
             </p>
           </div>
           <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg">
@@ -95,19 +97,16 @@ const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-slate-500">수주액</span>
                       <span className="font-bold text-slate-800">
-                        {new Intl.NumberFormat('ko-KR', {
-                          notation: 'compact',
-                        }).format(stats.totalWonAmount)}
+                        {compactNumberFormatter.format(stats.totalWonAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500">이익률</span>
                       <span
-                        className={`font-bold ${
-                          stats.avgMargin < 10
+                        className={`font-bold ${stats.avgMargin < 10
                             ? 'text-red-500'
                             : 'text-orange-500'
-                        }`}
+                          }`}
                       >
                         {stats.avgMargin}%
                       </span>
@@ -131,4 +130,5 @@ const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
 };
 
 export default DashboardView;
+
 

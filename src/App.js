@@ -1,18 +1,16 @@
 import React from 'react';
-import {
-  RefreshCw,
-  PieChart,
-  FolderKanban,
-  Globe,
-  Wifi,
-  WifiOff,
-  Download,
-  Upload,
-  Search,
-  Plus,
-  Edit3,
-  FileSpreadsheet,
-} from 'lucide-react';
+import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
+import PieChart from 'lucide-react/dist/esm/icons/pie-chart';
+import FolderKanban from 'lucide-react/dist/esm/icons/folder-kanban';
+import Globe from 'lucide-react/dist/esm/icons/globe';
+import Wifi from 'lucide-react/dist/esm/icons/wifi';
+import WifiOff from 'lucide-react/dist/esm/icons/wifi-off';
+import Download from 'lucide-react/dist/esm/icons/download';
+import Upload from 'lucide-react/dist/esm/icons/upload';
+import Search from 'lucide-react/dist/esm/icons/search';
+import Plus from 'lucide-react/dist/esm/icons/plus';
+import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
 import DashboardView from './components/DashboardView';
 import ProjectListView from './components/ProjectListView';
 import ProjectFormModal from './components/ProjectFormModal';

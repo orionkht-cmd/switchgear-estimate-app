@@ -42,7 +42,7 @@ export const useProjectDetail = ({
   const revisions = useProjectRevisions(project, user);
   const memos = useProjectMemo(project, user);
   const status = useProjectStatus(project, onUpdate);
-  const cost = useProjectCost(project);
+  const cost = useProjectCost(project, onUpdate);
   const actions = useProjectActions(project, onClose, onDeleted);
 
   return {

@@ -33,23 +33,24 @@ Task description:
 - Add unit and integration tests for the project's core flows: project create, project edit, revision save, and estimate calculation.
 
 Target files and paths:
-- `src/components/ProjectFormModal.js`
+- `src/components/ProjectFormModal.js` (or `.jsx`) and related form components
 - `src/services/projects.js`
 - `src/services/projectDetailService.js`
-- `src/__tests__/project-flows.test.js` (create new)
+- Add tests under `__tests__/` or `src/__tests__/` (create folder if missing)
 
 Steps:
-1. Create a test setup using Jest and React Testing Library. Create `src/__tests__/project-flows.test.js`.
-2. Write isolated unit tests for `projects.js` functions that compute costs.
-3. Implement integration tests that mount `ProjectFormModal`, simulate user input (e.g., project name, selecting items), and assert that the correct service functions are called.
-4. Mock network calls to keep tests deterministic.
-5. Ensure `npm test` runs these tests.
+1. Create a test setup using Jest and React Testing Library patterns. Add test files `src/__tests__/project-flows.test.js`.
+2. Write isolated unit tests for `projects.js` functions that compute costs or manipulate project objects.
+3. Implement React Testing Library integration tests that mount `ProjectFormModal` and simulate user flows: fill inputs, submit, and assert expected service calls or resulting UI.
+4. Add minimal mocks for network calls (mock `fetch` or `apiClient`) to keep tests fast and deterministic.
+5. Ensure tests run with `npm test` and update `package.json` if any helper scripts are needed.
 
 Implementation requirement:
-- Write actual functional test code. Do not use placeholders like `// implementation needed`.
+- Write actual test code (JavaScript) in the target test files. Do not leave placeholders.
 
 Verification:
-- Run `npm test` and confirm `project-flows.test.js` passes.
+- Run `npm test -- --watchAll=false` or `npm run test` and confirm tests execute and pass locally.
+- Ensure new tests are included in CI test run (if CI exists).
 
 After completing this prompt, proceed to PROMPT-002.
 
@@ -61,24 +62,26 @@ After completing this prompt, proceed to PROMPT-002.
 Execute this prompt now, then proceed to PROMPT-003.
 
 Task description:
-- Update `README.md` with clear build/run instructions and create `backend/.env.example`.
+- Create or update deployment and onboarding documentation, add `.env.example`, and provide simple build/run commands.
 
 Target files and paths:
 - `README.md`
-- `backend/.env.example` (create new)
-- `package.json`
+- `backend/.env` -> create `backend/.env.example`
+- `package.json` (scripts section)
+- `devplan/Prompt.md` (this file) should remain English-only
 
 Steps:
-1. Update `README.md` to include a "Getting Started" section (prerequisites, install, run) and a "Deployment" section (build command, artifacts).
-2. Create `backend/.env.example` listing all required environment variables (e.g., PORT, DB_URI) with placeholder values.
-3. Review `package.json` scripts and add a `start:backend` script if missing.
+1. Replace or append a "Deployment" section in `README.md` with exact commands to build and run locally: `npm install`, `npm run build`, `npm start`.
+2. Add `backend/.env.example` with the minimal keys used by `backend/server.js` (for example: `PORT`, `DB_PATH`, `EMAIL_HOST`) — inspect `backend/server.js` to determine keys and include safe placeholders.
+3. Add a short "Testing" subsection with `npm run test` instructions and any environment variables required for tests.
+4. Add a simple `scripts` helper if helpful (e.g., `npm run start:backend`) by editing `package.json`.
 
 Implementation requirement:
-- Provide clear, professional English documentation.
+- Write concrete README content and a valid `backend/.env.example` file populated with placeholder values.
 
 Verification:
-- Verify `backend/.env.example` exists.
-- Run `npm run build` to ensure the build process is valid as described.
+- Confirm `README.md` includes the new sections and `backend/.env.example` exists.
+- Run `npm run build` and ensure build completes without modifying production code.
 
 After completing this prompt, proceed to PROMPT-003.
 
@@ -86,23 +89,24 @@ After completing this prompt, proceed to PROMPT-003.
 Execute this prompt now, then proceed to PROMPT-004.
 
 Task description:
-- Add input validation middleware to `backend/server.js` and standardize error responses.
+- Harden basic input validation in the backend and standardize error responses.
 
 Target files and paths:
 - `backend/server.js`
 - `src/services/apiClient.js`
 
 Steps:
-1. Identify POST/PUT endpoints in `backend/server.js`.
-2. Add validation logic (check for required fields, type checks) before processing data.
-3. Standardize error responses to JSON format: `{ "error": "message" }`.
-4. Update `apiClient.js` to handle these standard error responses gracefully.
+1. Inspect `backend/server.js` for routes that accept user input. Add validation logic using a small schema check (e.g., AJV or manual checks). If AJV is present in devDependencies, prefer AJV; otherwise implement simple checks.
+2. Standardize error response format: `{ success: false, error: { code: 'INVALID_INPUT', message: '...' } }`.
+3. Ensure the backend does not log or expose sensitive environment variables in errors.
+4. Add unit tests that send invalid payloads and assert the standardized error responses (place tests under `src/__tests__/backend-validation.test.js` or similar).
 
 Implementation requirement:
-- Do not introduce heavy validation libraries unless already present; simple checks are sufficient for now.
+- Modify `backend/server.js` to implement validation and error formatting. Add tests that verify behavior.
 
 Verification:
-- Send a malformed request (e.g., via Curl or a test script) and verify the server returns a 400 status with a JSON error message.
+- Run `node backend/server.js` (or use `npm start` if configured) and exercise endpoints with invalid payloads to confirm standardized error responses.
+- Run the test suite `npm test` and ensure new tests pass.
 
 After completing this prompt, proceed to PROMPT-004.
 
@@ -114,22 +118,25 @@ After completing this prompt, proceed to PROMPT-004.
 Execute this prompt now, then proceed to PROMPT-005.
 
 Task description:
-- Add a new "AI Recommendation" feature to the Project Form.
+- Add a service-layer integration point to provide estimate suggestion data based on project inputs. Provide a minimal local mock implementation and a configurable remote connector.
 
 Target files and paths:
-- `src/services/aiService.js` (create new)
+- `src/services/projectDetailService.js`
 - `src/components/ProjectFormModal.js`
+- Add `src/services/aiService.js` (new)
 
 Steps:
-1. Create `src/services/aiService.js`. Implement a function `getEstimateSuggestions(specs)` that returns mock data (or calls OpenAI if API key exists).
-2. In `ProjectFormModal.js`, add a "Get Suggestions" button next to key input fields.
-3. On click, call the service and populate/update form fields with suggested values.
+1. Create `src/services/aiService.js` exporting `getEstimateSuggestions(input)` that returns a Promise resolving to suggestion objects. Implement a safe local fallback algorithm (rule-based) and a placeholder for remote LLM call (configurable via env).
+2. In `ProjectFormModal.js`, call `getEstimateSuggestions` when inputs reach a valid state and render suggestions in the UI.
+3. Expose configuration via environment flag (e.g., `REACT_APP_AI_ENABLED`) so remote calls are opt-in.
+4. Add basic unit tests mocking `aiService`.
 
 Implementation requirement:
-- Ensure the Mock fallback is robust so the feature works without an API key.
+- Provide working local suggestion logic and UI to show at least one suggested option. Do not hard-code sensitive keys.
 
 Verification:
-- Open the form, click "Get Suggestions", and verify fields are populated.
+- Run the app (`npm start`) and exercise the Project Form to observe suggestions appear when inputs are provided.
+- Run `npm test` to verify tests for `aiService`.
 
 After completing this prompt, proceed to PROMPT-005.
 
@@ -137,24 +144,25 @@ After completing this prompt, proceed to PROMPT-005.
 Execute this prompt now, then proceed to OPT-001.
 
 Task description:
-- Add workspace filtering to the Project Sidebar.
+- Add a lightweight workspace grouping feature so projects can be filtered and grouped by `workspaceId`.
 
 Target files and paths:
-- `src/components/ProjectSidebar.js`
 - `src/services/projects.js`
+- `src/ProjectListView.js` or `src/components/ProjectListView.js`
+- `src/ProjectSidebar.js`
 
 Steps:
-1. Update `projects.js` to support a `workspaceId` property in the project data model.
-2. In `ProjectSidebar.js`, add a dropdown or list to select a Workspace.
-3. Filter the displayed project list based on the selected workspace.
+1. Extend project objects to accept `workspaceId` optional property; update creation flow to allow setting it.
+2. Add UI controls in `ProjectSidebar` to select or filter by workspace.
+3. Update `projects.js` to provide filtered query helpers and ensure persistence (local storage or existing backend).
+4. Add unit tests for filtering logic.
 
 Implementation requirement:
-- Default to a "Personal" workspace if undefined.
+- Implement code that updates project data model, UI filter controls, and test coverage for filtering.
 
 Verification:
-- Create projects with different workspace IDs (manually or via code) and verify filtering works.
-
-After completing this prompt, proceed to OPT-001.
+- Run the app and confirm workspace filter changes the displayed project list.
+- Run `npm test` to confirm tests.
 
 ---
 
@@ -164,35 +172,36 @@ After completing this prompt, proceed to OPT-001.
 Execute this prompt now, then proceed to final verification.
 
 Task description:
-- Optimize `apiClient` with caching and refactor `useProjectDetail` to reduce re-renders.
+- Refactor `apiClient` to centralize HTTP logic and add a simple in-memory cache for GET requests. Simplify `useProjectDetail` to avoid duplicate calls.
 
 Target files and paths:
 - `src/services/apiClient.js`
 - `src/hooks/useProjectDetail.js`
+- `src/services/projects.js`
 
 Steps:
-1. Modify `apiClient.js` to implement a singleton pattern with a simple in-memory cache for GET requests.
-2. Refactor `useProjectDetail.js` to reuse this cache and handle loading states more cleanly (avoiding waterfall requests).
-3. Add JSDoc type hints to these files to improve developer experience (IntelliSense).
+1. Modify or create `src/services/apiClient.js` to export `get`, `post`, `put`, `delete` methods and add a small LRU or TTL in-memory cache for GET.
+2. Replace direct fetch usage in services with `apiClient.get/post` helpers.
+3. Update `useProjectDetail` to use a single cached fetch and expose `loading/error/data` state cleanly.
+4. Add unit tests that verify cache behavior and that duplicate calls are avoided.
 
 Implementation requirement:
-- Show tangible code structure improvements.
+- Provide fully implemented helper methods; do not leave placeholders.
 
 Verification:
-- Check React DevTools or console logs to confirm fewer network requests are made when revisiting a project detail.
+- Use React DevTools or logs to confirm duplicate API calls are reduced.
+- Run `npm test` and ensure new tests pass.
 
----
-
-## Final Verification
-After completing all prompts, run the following commands to ensure system health:
+After completing all prompts, run final verification commands:
 
 ```bash
 npm run build
-npm test
+npm test -- --watchAll=false
 ```
 
-If all tests pass and the build succeeds, execute the following:
+Final step:
+- Print `ALL PROMPTS COMPLETED. All pending improvement and optimization items from the latest report have been applied.`
 
-**COMPLETION MESSAGE:**
-"ALL PROMPTS COMPLETED. All pending improvement and optimization items from the latest report have been applied."
+---
 
+ALL PROMPTS MUST BE EXECUTED SEQUENTIALLY. DO NOT SKIP PROMPTS.

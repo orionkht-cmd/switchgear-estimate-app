@@ -35,14 +35,28 @@ const ProjectHeader = ({
                 <p className="text-sm text-slate-500 mt-1">
                     {project.projectIdDisplay} • {project.client}
                 </p>
+                <div className="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
+                    <span className="bg-white border border-slate-200 rounded px-2 py-1">
+                        품명: <strong>{project.productType || '-'}</strong>
+                    </span>
+                    <span className="bg-white border border-slate-200 rounded px-2 py-1">
+                        계약번호: <strong>{project.contractNumber || '-'}</strong>
+                    </span>
+                    <span className="bg-white border border-slate-200 rounded px-2 py-1">
+                        납품기한: <strong>{project.deliveryDeadline || '-'}</strong>
+                    </span>
+                    <span className="bg-white border border-slate-200 rounded px-2 py-1">
+                        준공기한: <strong>{project.completionDeadline || '-'}</strong>
+                    </span>
+                </div>
                 <div className="flex gap-4 mt-2 text-sm text-slate-700 bg-white p-2 rounded border border-slate-200 inline-block">
                     <span className="flex items-center gap-1">
-                        <Briefcase className="w-4 h-4 text-slate-400" /> 영업:{' '}
+                        <Briefcase className="w-4 h-4 text-slate-400" /> 영업자:{' '}
                         <strong>{project.salesRep}</strong>
                     </span>
                     <span className="w-px h-4 bg-slate-300"></span>
                     <span className="flex items-center gap-1">
-                        <User className="w-4 h-4 text-slate-400" /> 설계/PM:{' '}
+                        <User className="w-4 h-4 text-slate-400" /> 담당자:{' '}
                         <strong>{project.manager}</strong>
                     </span>
                 </div>

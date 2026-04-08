@@ -48,6 +48,12 @@ export const useAppShell = () => {
     projectIdDisplay: '',
     name: '',
     client: '',
+    estimateDate: '',
+    deliveryDeadline: '',
+    completionDeadline: '',
+    contractNumber: '',
+    productType: '수배전반',
+    orderingDepartment: '',
     manager: '',
     salesRep: '',
     contractMethod: '수의계약',
@@ -113,6 +119,12 @@ export const useAppShell = () => {
       projectIdDisplay: defaultId,
       name: '',
       client: '',
+      estimateDate: '',
+      deliveryDeadline: '',
+      completionDeadline: '',
+      contractNumber: '',
+      productType: '수배전반',
+      orderingDepartment: '',
       manager: '',
       salesRep: '',
       contractMethod: '수의계약',
@@ -137,6 +149,12 @@ export const useAppShell = () => {
       projectIdDisplay: selectedProject.projectIdDisplay,
       name: selectedProject.name,
       client: selectedProject.client,
+      estimateDate: selectedProject.estimateDate || '',
+      deliveryDeadline: selectedProject.deliveryDeadline || '',
+      completionDeadline: selectedProject.completionDeadline || '',
+      contractNumber: selectedProject.contractNumber || '',
+      productType: selectedProject.productType || '수배전반',
+      orderingDepartment: selectedProject.orderingDepartment || '',
       manager: selectedProject.manager,
       salesRep: selectedProject.salesRep,
       contractMethod: selectedProject.contractMethod,
@@ -156,6 +174,11 @@ export const useAppShell = () => {
     if (!user) return;
 
     try {
+      const parsedContractAmount = parseInt(
+        projectForm.contractAmount || 0,
+        10,
+      );
+
       if (isEditMode) {
         // 수정 모드일 때 ID 찾기 (projectForm.id 우선)
         const targetId = projectForm.id || (selectedProject ? selectedProject.id : null);
@@ -166,23 +189,33 @@ export const useAppShell = () => {
 
         await projectApi.update(targetId, {
           ...projectForm,
-          contractAmount: parseInt(
-            projectForm.contractAmount || 0,
-            10,
-          ),
+          contractAmount: parsedContractAmount,
           lastModifier: user.uid,
         });
         alert('프로젝트 정보가 수정되었습니다.');
       } else {
-        await projectApi.create({
+        const newProject = await projectApi.create({
           ...projectForm,
-          contractAmount: parseInt(
-            projectForm.contractAmount || 0,
-            10,
-          ),
+          contractAmount: parsedContractAmount,
           createdBy: user.uid,
         });
-        alert('새 프로젝트가 등록되었습니다.');
+
+        // 프로젝트 생성 시 입력된 금액을 첫 번째 리비전으로 자동 등록
+        if (newProject && newProject.id && parsedContractAmount > 0) {
+          try {
+            await projectApi.updateStatus(newProject.id, '설계');
+            await projectApi.updateProgress(newProject.id, 'design');
+
+            await projectApi.addRevision(newProject.id, {
+              amount: parsedContractAmount,
+              note: '프로젝트 생성 시 자동 등록',
+              createdBy: user.uid
+            });
+          } catch (revError) {
+            console.error('초기 리비전 등록 실패:', revError);
+          }
+        }
+        alert('새 프로젝트와 초기 견적 히스토리가 등록되었습니다.');
       }
       setIsNewProjectModalOpen(false);
       window.location.reload();

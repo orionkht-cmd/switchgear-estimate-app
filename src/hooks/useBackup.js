@@ -192,7 +192,10 @@ export const useBackup = (projects = [], setProjects) => {
                     }
 
                     const sample = rows[0];
-                    if (!Object.prototype.hasOwnProperty.call(sample, '프로젝트명')) {
+                    if (
+                        !Object.prototype.hasOwnProperty.call(sample, '프로젝트명') &&
+                        !Object.prototype.hasOwnProperty.call(sample, '사업명')
+                    ) {
                         alert(
                             '지원되지 않는 엑셀 형식입니다.\n"프로젝트목록_*.xlsx" 형식의 백업 파일을 사용해주세요.',
                         );
@@ -236,11 +239,15 @@ export const useBackup = (projects = [], setProjects) => {
                     };
 
                     const projectsFromExcel = rows.map((row) => ({
-                        name: row['프로젝트명'] || '',
-                        client: row['발주처'] || '',
+                        name: row['사업명'] || row['프로젝트명'] || '',
+                        productType: row['품명'] || '수배전반',
+                        client: row['수요기관'] || row['발주처'] || '',
+                        contractNumber: row['계약번호'] || '',
+                        deliveryDeadline: row['납품기한'] || '',
+                        completionDeadline: row['준공기한'] || '',
                         ledgerName: row['소속대장'] || '',
-                        salesRep: row['영업담당'] || '',
-                        manager: row['설계담당'] || '',
+                        salesRep: row['영업자'] || row['영업담당'] || '',
+                        manager: row['담당자'] || row['설계담당'] || '',
                         status: row['상태'] || '진행중',
                         contractAmount: toNumber(row['계약금액']),
                         finalCost: toNumber(row['최종실행원가']),

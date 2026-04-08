@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { projectApi, getApiBaseUrl } from '../services/apiClient';
+import {
+  projectApi,
+  getApiBaseUrl,
+  getStoredApiKey,
+} from '../services/apiClient';
 
 const ApiKeyGate = ({ children }) => {
-  // 서버 주소는 코드로 고정 (읽기 전용 표시용)
+  const isDevBypassEnabled = process.env.NODE_ENV === 'development';
+
+  // 서버 주소는 코드로 고정합니다. 화면에는 읽기 전용으로만 보여줍니다.
   const [baseUrlInput] = useState(() => getApiBaseUrl());
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isConfigured, setIsConfigured] = useState(false);
@@ -10,32 +16,90 @@ const ApiKeyGate = ({ children }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const storedKey = window.localStorage.getItem('apiKey') || '';
-      setApiKeyInput(storedKey || '');
-      if (storedKey) {
-        setIsConfigured(true);
-      }
-    } catch (e) {
-      // ignore
+    if (isDevBypassEnabled) {
+      setIsConfigured(true);
+      setChecking(false);
+      setError('');
+      return undefined;
     }
-  }, []);
+
+    if (typeof window === 'undefined') return undefined;
+
+    let cancelled = false;
+
+    const restoreAndVerifyKey = async () => {
+      const storedKey = getStoredApiKey();
+      setApiKeyInput(storedKey);
+
+      if (!storedKey) {
+        return;
+      }
+
+      setChecking(true);
+
+      try {
+        await projectApi.verifyKey();
+        if (!cancelled) {
+          setIsConfigured(true);
+          setError('');
+        }
+      } catch (e) {
+        try {
+          window.localStorage.removeItem('apiKey');
+        } catch (storageError) {
+          // ignore
+        }
+
+        if (!cancelled) {
+          setIsConfigured(false);
+          setApiKeyInput('');
+        }
+      } finally {
+        if (!cancelled) {
+          setChecking(false);
+        }
+      }
+    };
+
+    restoreAndVerifyKey();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDevBypassEnabled]);
 
   const handleSave = async () => {
+    if (isDevBypassEnabled) {
+      setIsConfigured(true);
+      return;
+    }
+
     if (!apiKeyInput) {
       setError('API 키를 입력해주세요.');
       return;
     }
+
     setError('');
     setChecking(true);
+
     try {
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem('apiKey', apiKeyInput.trim());
+        // 로컬 스토리지에는 단순 난독화 형태로 저장합니다.
+        const encodedKey = window.btoa(apiKeyInput.trim());
+        window.localStorage.setItem('apiKey', encodedKey);
       }
+
       await projectApi.verifyKey();
       setIsConfigured(true);
     } catch (e) {
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.removeItem('apiKey');
+        } catch (storageError) {
+          // ignore
+        }
+      }
+
       setError('서버 연결 또는 API 키가 올바르지 않습니다.');
     } finally {
       setChecking(false);
