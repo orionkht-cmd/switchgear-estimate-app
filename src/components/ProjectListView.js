@@ -71,7 +71,7 @@ const ProjectListView = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden animate-fade-in flex flex-col h-full">
       <div className="overflow-x-auto overflow-y-auto flex-1">
-        <table className="min-w-[1460px] w-full table-fixed text-sm text-left">
+        <table className="min-w-[1360px] w-full table-fixed text-sm text-left">
           <colgroup>
             <col className="w-[100px]" />
             <col className="w-[100px]" />
@@ -84,7 +84,7 @@ const ProjectListView = ({
             <col className="w-[150px]" />
             <col className="w-[90px]" />
             <col />
-            <col />
+            <col className="w-[120px]" />
           </colgroup>
           <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wide text-slate-500">
             <tr>
@@ -138,7 +138,7 @@ const ProjectListView = ({
                 <SortIcon columnKey="name" sortConfig={sortConfig} />
               </th>
               <th
-                className="px-4 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                className="px-3 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('manager')}
               >
                 영업자/담당자
@@ -247,7 +247,7 @@ const ProjectListView = ({
                       {p.client || '-'}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 overflow-hidden">
+                  <td className="px-3 py-3 text-slate-600 overflow-hidden">
                     <span
                       className={ellipsisTextClass}
                       title={[p.salesRep, p.manager].filter(Boolean).join(' / ')}
