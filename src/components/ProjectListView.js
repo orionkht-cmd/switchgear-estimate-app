@@ -85,7 +85,6 @@ const ProjectListView = ({
             <col className="w-[90px]" />
             <col />
             <col />
-            <col />
           </colgroup>
           <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wide text-slate-500">
             <tr>
@@ -138,7 +137,6 @@ const ProjectListView = ({
                 사업명
                 <SortIcon columnKey="name" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 whitespace-nowrap">소속대장</th>
               <th
                 className="px-4 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('manager')}
@@ -248,11 +246,6 @@ const ProjectListView = ({
                     >
                       {p.client || '-'}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 overflow-hidden">
-                    <span className={ellipsisTextClass} title={p.ledgerName}>
-                      {p.ledgerName || '-'}
-                    </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600 overflow-hidden">
                     <span
