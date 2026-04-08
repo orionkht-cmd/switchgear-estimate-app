@@ -2,3 +2,17 @@
   font-family: sans-serif;
   text-align: center;
 }
+
+.project-name {
+  max-width: 30ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.manager-name {
+  max-width: 12ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

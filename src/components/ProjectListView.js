@@ -78,13 +78,13 @@ const ProjectListView = ({
             <col className="w-[100px]" />
             <col className="w-[170px]" />
             <col className="w-[70px]" />
-            <col />
-            <col />
+            <col className="w-[140px]" />
+            <col className="w-[130px]" />
             <col className="w-[84px]" />
             <col className="w-[150px]" />
             <col className="w-[90px]" />
             <col />
-            <col className="w-[120px]" />
+            <col />
           </colgroup>
           <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wide text-slate-500">
             <tr>
@@ -107,10 +107,10 @@ const ProjectListView = ({
               <th className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
                 품명
               </th>
-              <th className="px-4 py-3 text-center whitespace-nowrap">
+              <th className="px-3 py-3 text-center whitespace-nowrap">
                 수요기관
               </th>
-              <th className="px-4 py-3 text-center whitespace-nowrap">
+              <th className="px-3 py-3 text-center whitespace-nowrap">
                 발주부서
               </th>
               <th
@@ -200,7 +200,7 @@ const ProjectListView = ({
                   >
                     {p.productType || '-'}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-3 text-center">
                     <span
                       className={`${ellipsisTextClass} text-slate-600 text-sm`}
                       title={p.client}
@@ -208,7 +208,7 @@ const ProjectListView = ({
                       {p.client || '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-3 text-center">
                     <span
                       className={`${ellipsisTextClass} text-slate-600 text-sm`}
                       title={p.orderingDepartment}
@@ -235,7 +235,7 @@ const ProjectListView = ({
                   </td>
                   <td className="px-4 py-3 overflow-hidden">
                     <div
-                      className={`${ellipsisTextClass} font-bold text-slate-800`}
+                      className={`project-name ${ellipsisTextClass} font-bold text-slate-800`}
                       title={p.name}
                     >
                       {p.name}
@@ -249,7 +249,7 @@ const ProjectListView = ({
                   </td>
                   <td className="px-3 py-3 text-slate-600 overflow-hidden">
                     <span
-                      className={ellipsisTextClass}
+                      className={`manager-name ${ellipsisTextClass}`}
                       title={[p.salesRep, p.manager].filter(Boolean).join(' / ')}
                     >
                       <span className="font-medium">{p.salesRep || '-'}</span>
