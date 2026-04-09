@@ -95,8 +95,12 @@ const ProjectListView = ({
                 견적일
                 <SortIcon columnKey="estimateDate" sortConfig={sortConfig} />
               </th>
-              <th className="px-3 py-3 text-center sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
+              <th
+                className="px-3 py-3 text-center sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                onClick={() => onSort('deliveryDeadline')}
+              >
                 계약일
+                <SortIcon columnKey="deliveryDeadline" sortConfig={sortConfig} />
               </th>
               <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] leading-tight">
                 <span className="block">준공기한</span>
