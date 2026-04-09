@@ -134,6 +134,13 @@ export const useProjects = (user, setLoading) => {
                     bValue = (b.salesRep || '') + (b.manager || '');
                 }
 
+                const aHasValue = aValue !== undefined && aValue !== null && aValue !== '';
+                const bHasValue = bValue !== undefined && bValue !== null && bValue !== '';
+
+                if (!aHasValue && !bHasValue) return 0;
+                if (!aHasValue) return 1;
+                if (!bHasValue) return -1;
+
                 if (aValue < bValue)
                     return sortDir === 'asc' ? -1 : 1;
                 if (aValue > bValue)
@@ -178,4 +185,3 @@ export const useProjects = (user, setLoading) => {
         filteredAndSortedProjects,
     };
 };
-
