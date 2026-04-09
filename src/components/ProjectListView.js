@@ -75,7 +75,7 @@ const ProjectListView = ({
           <colgroup>
             <col className="w-[100px]" />
             <col className="w-[100px]" />
-            <col className="w-[120px]" />
+            <col className="w-[100px]" />
             <col className="w-[170px]" />
             <col className="w-[70px]" />
             <col className="w-[140px]" />
@@ -89,7 +89,7 @@ const ProjectListView = ({
           <thead className="bg-slate-50 border-b sticky top-0 z-20 shadow-sm text-sm uppercase tracking-wide text-slate-500">
             <tr>
               <th
-                className="px-3 py-3 text-center sticky left-0 z-30 bg-slate-50 border-r border-slate-200 w-[100px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                className="px-3 py-3 text-center align-middle sticky left-0 z-30 bg-slate-50 border-r border-slate-200 w-[100px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                 onClick={() => onSort('estimateDate')}
               >
                 견적일
@@ -98,13 +98,14 @@ const ProjectListView = ({
               <th className="px-3 py-3 text-center sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
                 계약일
               </th>
-              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[120px] whitespace-nowrap text-[11px]">
-                준공기한(납품기한)
+              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] leading-tight">
+                <span className="block">준공기한</span>
+                <span className="block">(납품기한)</span>
               </th>
-              <th className="px-3 py-3 text-center sticky left-[320px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[300px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
                 계약번호
               </th>
-              <th className="px-3 py-3 text-center sticky left-[490px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
                 품명
               </th>
               <th className="px-3 py-3 text-center whitespace-nowrap">
@@ -191,12 +192,12 @@ const ProjectListView = ({
                     {p.completionDeadline || '-'}
                   </td>
                   <td
-                    className={`${fixedCellClass} sticky left-[320px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                    className={`${fixedCellClass} sticky left-[300px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
                   >
                     {p.contractNumber || '-'}
                   </td>
                   <td
-                    className={`${fixedCellClass} sticky left-[490px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                    className={`${fixedCellClass} sticky left-[470px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
                   >
                     {p.productType || '-'}
                   </td>
