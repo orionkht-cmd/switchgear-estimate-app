@@ -75,7 +75,7 @@ const ProjectListView = ({
           <colgroup>
             <col className="w-[100px]" />
             <col className="w-[100px]" />
-            <col className="w-[100px]" />
+            <col className="w-[120px]" />
             <col className="w-[170px]" />
             <col className="w-[70px]" />
             <col className="w-[140px]" />
@@ -96,15 +96,15 @@ const ProjectListView = ({
                 <SortIcon columnKey="estimateDate" sortConfig={sortConfig} />
               </th>
               <th className="px-3 py-3 text-center sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
-                납품기한
+                계약일
               </th>
-              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] whitespace-nowrap">
-                준공기한
+              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[120px] whitespace-nowrap text-[11px]">
+                준공기한(납품기한)
               </th>
-              <th className="px-3 py-3 text-center sticky left-[300px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[320px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
                 계약번호
               </th>
-              <th className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
+              <th className="px-3 py-3 text-center sticky left-[490px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
                 품명
               </th>
               <th className="px-3 py-3 text-center whitespace-nowrap">
@@ -191,12 +191,12 @@ const ProjectListView = ({
                     {p.completionDeadline || '-'}
                   </td>
                   <td
-                    className={`${fixedCellClass} sticky left-[300px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                    className={`${fixedCellClass} sticky left-[320px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
                   >
                     {p.contractNumber || '-'}
                   </td>
                   <td
-                    className={`${fixedCellClass} sticky left-[470px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
+                    className={`${fixedCellClass} sticky left-[490px] z-10 bg-white group-hover:bg-slate-50 text-slate-600`}
                   >
                     {p.productType || '-'}
                   </td>

@@ -43,10 +43,10 @@ const ProjectHeader = ({
                         계약번호: <strong>{project.contractNumber || '-'}</strong>
                     </span>
                     <span className="bg-white border border-slate-200 rounded px-2 py-1">
-                        납품기한: <strong>{project.deliveryDeadline || '-'}</strong>
+                        계약일: <strong>{project.deliveryDeadline || '-'}</strong>
                     </span>
                     <span className="bg-white border border-slate-200 rounded px-2 py-1">
-                        준공기한: <strong>{project.completionDeadline || '-'}</strong>
+                        준공기한(납품기한): <strong>{project.completionDeadline || '-'}</strong>
                     </span>
                 </div>
                 <div className="flex gap-4 mt-2 text-sm text-slate-700 bg-white p-2 rounded border border-slate-200 inline-block">

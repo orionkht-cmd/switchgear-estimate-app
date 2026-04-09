@@ -239,12 +239,13 @@ export const useBackup = (projects = [], setProjects) => {
                     };
 
                     const projectsFromExcel = rows.map((row) => ({
+                        estimateDate: row['견적일'] || '',
                         name: row['사업명'] || row['프로젝트명'] || '',
                         productType: row['품명'] || '수배전반',
                         client: row['수요기관'] || row['발주처'] || '',
                         contractNumber: row['계약번호'] || '',
-                        deliveryDeadline: row['납품기한'] || '',
-                        completionDeadline: row['준공기한'] || '',
+                        deliveryDeadline: row['계약일'] || row['납품기한'] || '',
+                        completionDeadline: row['준공기한(납품기한)'] || row['준공기한'] || '',
                         ledgerName: row['소속대장'] || '',
                         salesRep: row['영업자'] || row['영업담당'] || '',
                         manager: row['담당자'] || row['설계담당'] || '',

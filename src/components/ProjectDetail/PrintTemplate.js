@@ -63,11 +63,11 @@ const PrintTemplate = ({ project }) => (
                             <td>{project.contractMethod}</td>
                         </tr>
                         <tr>
-                            <td className="py-1 text-gray-500">납품기한</td>
+                            <td className="py-1 text-gray-500">계약일</td>
                             <td>{project.deliveryDeadline || '-'}</td>
                         </tr>
                         <tr>
-                            <td className="py-1 text-gray-500">준공기한</td>
+                            <td className="py-1 text-gray-500">준공기한(납품기한)</td>
                             <td>{project.completionDeadline || '-'}</td>
                         </tr>
                         <tr>

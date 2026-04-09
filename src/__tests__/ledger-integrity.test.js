@@ -46,8 +46,8 @@ describe('Ledger Data Integrity Tests', () => {
     expect(screen.getByText('소속 대장 (회사 선택)')).toBeInTheDocument();
     expect(screen.getByText('프로젝트 번호')).toBeInTheDocument();
     expect(screen.getByText('사업명')).toBeInTheDocument();
-    expect(screen.getByText('납품기한')).toBeInTheDocument();
-    expect(screen.getByText('준공기한')).toBeInTheDocument();
+    expect(screen.getByText('계약일')).toBeInTheDocument();
+    expect(screen.getByText('준공기한(납품기한)')).toBeInTheDocument();
     expect(screen.getByText('계약번호')).toBeInTheDocument();
     expect(screen.getByText('품명')).toBeInTheDocument();
     expect(screen.getByText('견적금액 (VAT포함)')).toBeInTheDocument();

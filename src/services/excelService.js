@@ -22,13 +22,14 @@ export const exportProjectListToExcel = (projects) => {
     }
     const wb = window.XLSX.utils.book_new();
     const data = projects.map((p) => ({
+        견적일: p.estimateDate || '',
+        계약일: p.deliveryDeadline || '',
+        '준공기한(납품기한)': p.completionDeadline || '',
         상태: p.status,
         사업명: p.name,
         품명: p.productType || '',
         수요기관: p.client,
         계약번호: p.contractNumber || '',
-        납품기한: p.deliveryDeadline || '',
-        준공기한: p.completionDeadline || '',
         소속대장: p.ledgerName,
         영업자: p.salesRep,
         담당자: p.manager,
@@ -59,7 +60,7 @@ export const exportProjectToExcel = (project) => {
         ],
         [`수요기관: ${project.client}`, `품명: ${project.productType || '-'}`],
         [`계약번호: ${project.contractNumber || '-'}`, `영업자/담당자: ${project.salesRep || '-'} / ${project.manager || '-'}`],
-        [`납품기한: ${project.deliveryDeadline || '-'}`, `준공기한: ${project.completionDeadline || '-'}`],
+        [`계약일: ${project.deliveryDeadline || '-'}`, `준공기한(납품기한): ${project.completionDeadline || '-'}`],
         [`최종 실행원가: ${formatCurrency(project.finalCost || 0)}`],
         [],
         ['Rev', '날짜', '수정 사유', '견적금액', '이익금', '이익률'],

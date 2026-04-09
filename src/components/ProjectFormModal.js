@@ -242,7 +242,7 @@ const ProjectFormModal = ({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label htmlFor="project-delivery-deadline" className="text-xs text-slate-500 block mb-1">
-                납품기한
+                계약일
               </label>
               <input
                 id="project-delivery-deadline"
@@ -259,7 +259,7 @@ const ProjectFormModal = ({
             </div>
             <div>
               <label htmlFor="project-completion-deadline" className="text-xs text-slate-500 block mb-1">
-                준공기한
+                준공기한(납품기한)
               </label>
               <input
                 id="project-completion-deadline"
