@@ -192,6 +192,13 @@ export const useAppShell = () => {
           contractAmount: parsedContractAmount,
           lastModifier: user.uid,
         });
+        const updatedProject = await projectApi.get(targetId);
+        setProjects((prevProjects) =>
+          (Array.isArray(prevProjects) ? prevProjects : []).map((project) =>
+            project.id === targetId ? updatedProject : project
+          )
+        );
+        setSelectedProject(updatedProject);
         alert('프로젝트 정보가 수정되었습니다.');
       } else {
         const newProject = await projectApi.create({
@@ -215,10 +222,14 @@ export const useAppShell = () => {
             console.error('초기 리비전 등록 실패:', revError);
           }
         }
+        const createdProject = await projectApi.get(newProject.id);
+        setProjects((prevProjects) => [
+          createdProject,
+          ...(Array.isArray(prevProjects) ? prevProjects : []),
+        ]);
         alert('새 프로젝트와 초기 견적 히스토리가 등록되었습니다.');
       }
       setIsNewProjectModalOpen(false);
-      window.location.reload();
     } catch (e) {
       alert('저장 중 오류가 발생했습니다: ' + e.message);
     }

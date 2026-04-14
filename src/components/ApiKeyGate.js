@@ -12,12 +12,20 @@ const ApiKeyGate = ({ children }) => {
   const [baseUrlInput] = useState(() => getApiBaseUrl());
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isConfigured, setIsConfigured] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(() => {
+    if (isDevBypassEnabled || typeof window === 'undefined') {
+      return false;
+    }
+
+    return Boolean(getStoredApiKey());
+  });
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (isDevBypassEnabled) {
       setIsConfigured(true);
+      setIsBootstrapping(false);
       setChecking(false);
       setError('');
       return undefined;
@@ -32,6 +40,9 @@ const ApiKeyGate = ({ children }) => {
       setApiKeyInput(storedKey);
 
       if (!storedKey) {
+        if (!cancelled) {
+          setIsBootstrapping(false);
+        }
         return;
       }
 
@@ -56,6 +67,7 @@ const ApiKeyGate = ({ children }) => {
         }
       } finally {
         if (!cancelled) {
+          setIsBootstrapping(false);
           setChecking(false);
         }
       }
@@ -108,6 +120,19 @@ const ApiKeyGate = ({ children }) => {
 
   if (isConfigured) {
     return children;
+  }
+
+  if (isBootstrapping) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 text-slate-100">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-xl">
+          <h1 className="text-lg font-bold mb-2">시스템 연결 확인 중</h1>
+          <p className="text-sm text-slate-300">
+            저장된 API 키로 백엔드 연결 상태를 확인하고 있습니다.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
