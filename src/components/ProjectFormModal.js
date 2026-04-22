@@ -53,6 +53,23 @@ function formatDigitsToISO(digits) {
   return { ok: false, value: digits };
 }
 
+function pad2(v) {
+  return String(v).padStart(2, '0');
+}
+
+function getTodayLocalISODate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = pad2(today.getMonth() + 1);
+  const date = pad2(today.getDate());
+  return `${year}-${month}-${date}`;
+}
+
+function isTodayDateShortcut(e) {
+  if (!(e.ctrlKey || e.metaKey)) return false;
+  return !e.shiftKey && (e.key === ';' || e.code === 'Semicolon');
+}
+
 const ProjectFormModal = ({
   isOpen,
   isEditMode,
@@ -188,7 +205,7 @@ const ProjectFormModal = ({
 
           <div>
             <label htmlFor="project-estimate-date" className="text-xs text-slate-500 block mb-1">
-              견적일 (숫자 6자리 혹은 8자리 입력 가능){' '}
+              견적일 (숫자 6자리 혹은 8자리 입력 가능, Ctrl + ;로 오늘 날짜 입력){' '}
               {isDateLocked && (
                 <span className="text-orange-600 font-bold">(변경불가)</span>
               )}
@@ -201,6 +218,15 @@ const ProjectFormModal = ({
                 }`}
               value={projectForm.estimateDate}
               placeholder="예: 250101 또는 20250101"
+              onKeyDown={(e) => {
+                if (!isTodayDateShortcut(e)) return;
+                e.preventDefault();
+                setDateError('');
+                setProjectForm((prev) => ({
+                  ...prev,
+                  estimateDate: getTodayLocalISODate(),
+                }));
+              }}
               onChange={(e) => {
                 let val = digitsOnly(e.target.value);
                 if (val.length > 8) val = val.slice(0, 8);
