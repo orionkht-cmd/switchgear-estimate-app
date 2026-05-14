@@ -102,9 +102,13 @@ const ProjectListView = ({
                 계약일
                 <SortIcon columnKey="deliveryDeadline" sortConfig={sortConfig} />
               </th>
-              <th className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] leading-tight">
+              <th
+                className="px-3 py-3 text-center sticky left-[200px] z-30 bg-slate-50 border-r border-slate-200 w-[100px] cursor-pointer hover:bg-slate-100 leading-tight"
+                onClick={() => onSort('completionDeadline')}
+              >
                 <span className="block">준공기한</span>
                 <span className="block">(납품기한)</span>
+                <SortIcon columnKey="completionDeadline" sortConfig={sortConfig} />
               </th>
               <th className="px-3 py-3 text-center sticky left-[300px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
                 계약번호
