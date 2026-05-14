@@ -109,11 +109,19 @@ const ProjectListView = ({
               <th className="px-3 py-3 text-center sticky left-[300px] z-30 bg-slate-50 border-r border-slate-200 w-[170px] whitespace-nowrap">
                 계약번호
               </th>
-              <th className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] whitespace-nowrap">
+              <th
+                className="px-3 py-3 text-center sticky left-[470px] z-30 bg-slate-50 border-r border-slate-200 w-[70px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                onClick={() => onSort('productType')}
+              >
                 품명
+                <SortIcon columnKey="productType" sortConfig={sortConfig} />
               </th>
-              <th className="px-3 py-3 text-center whitespace-nowrap">
+              <th
+                className="px-3 py-3 text-center cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                onClick={() => onSort('client')}
+              >
                 수요기관
+                <SortIcon columnKey="client" sortConfig={sortConfig} />
               </th>
               <th className="px-3 py-3 text-center whitespace-nowrap">
                 발주부서
@@ -132,8 +140,12 @@ const ProjectListView = ({
                 금액
                 <SortIcon columnKey="contractAmount" sortConfig={sortConfig} />
               </th>
-              <th className="px-4 py-3 text-center w-[90px] whitespace-nowrap">
+              <th
+                className="px-4 py-3 text-center w-[90px] cursor-pointer hover:bg-slate-100 whitespace-nowrap"
+                onClick={() => onSort('contractMethod')}
+              >
                 계약방법
+                <SortIcon columnKey="contractMethod" sortConfig={sortConfig} />
               </th>
               <th
                 className="px-4 py-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap"
