@@ -139,8 +139,29 @@ const ApiKeyGate = ({ children }) => {
     }
   };
 
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('apiKey');
+        window.localStorage.removeItem('displayName');
+      } catch (storageError) {
+        // ignore
+      }
+    }
+
+    setApiKeyInput('');
+    setDisplayNameInput('');
+    setIsConfigured(false);
+    setIsBootstrapping(false);
+    setChecking(false);
+    setError('');
+  };
+
   if (isConfigured) {
-    return children;
+    return React.cloneElement(children, {
+      displayName: displayNameInput,
+      onLogout: handleLogout,
+    });
   }
 
   if (isBootstrapping) {

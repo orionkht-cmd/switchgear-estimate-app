@@ -11,6 +11,7 @@ import Search from 'lucide-react/dist/esm/icons/search';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
+import LogOut from 'lucide-react/dist/esm/icons/log-out';
 import DashboardView from './components/DashboardView';
 import ProjectListView from './components/ProjectListView';
 import ProjectFormModal from './components/ProjectFormModal';
@@ -21,7 +22,7 @@ import { useTailwindCdn } from './hooks/useTailwindCdn';
 import { exportProjectListToExcel } from './services/excelService';
 import ApiKeyGate from './components/ApiKeyGate';
 
-function AppInner() {
+function AppInner({ displayName, onLogout }) {
   const {
     user,
     projects,
@@ -286,18 +287,31 @@ function AppInner() {
               </div>
             </div>
 
-            <button
-              onClick={() => exportProjectListToExcel(filteredAndSortedProjects)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-green-700 whitespace-nowrap ml-2"
-            >
-              <FileSpreadsheet className="w-4 h-4" /> 목록 엑셀 저장
-            </button>
-            <button
-              onClick={handleOpenCreateModal}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap ml-2"
-            >
-              <Plus className="w-4 h-4" /> 프로젝트 등록
-            </button>
+            <div className="flex items-center gap-2 ml-2">
+              {displayName && (
+                <span className="hidden xl:inline text-xs text-slate-500 max-w-[120px] truncate">
+                  {displayName}
+                </span>
+              )}
+              <button
+                onClick={onLogout}
+                className="text-slate-500 border border-slate-200 px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-slate-100 whitespace-nowrap"
+              >
+                <LogOut className="w-4 h-4" /> 로그아웃
+              </button>
+              <button
+                onClick={() => exportProjectListToExcel(filteredAndSortedProjects)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-green-700 whitespace-nowrap"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> 목록 엑셀 저장
+              </button>
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" /> 프로젝트 등록
+              </button>
+            </div>
           </header>
 
           <div className="flex-1 overflow-auto p-6">
