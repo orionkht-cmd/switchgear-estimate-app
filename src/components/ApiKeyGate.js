@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   projectApi,
   getApiBaseUrl,
+  getStoredDisplayName,
   getStoredApiKey,
 } from '../services/apiClient';
 
@@ -11,6 +12,9 @@ const ApiKeyGate = ({ children }) => {
   // 서버 주소는 코드로 고정합니다. 화면에는 읽기 전용으로만 보여줍니다.
   const [baseUrlInput] = useState(() => getApiBaseUrl());
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [displayNameInput, setDisplayNameInput] = useState(() =>
+    getStoredDisplayName(),
+  );
   const [isConfigured, setIsConfigured] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(() => {
     if (isDevBypassEnabled || typeof window === 'undefined') {
@@ -37,7 +41,9 @@ const ApiKeyGate = ({ children }) => {
 
     const restoreAndVerifyKey = async () => {
       const storedKey = getStoredApiKey();
+      const storedName = getStoredDisplayName();
       setApiKeyInput(storedKey);
+      setDisplayNameInput(storedName);
 
       if (!storedKey) {
         if (!cancelled) {
@@ -51,12 +57,13 @@ const ApiKeyGate = ({ children }) => {
       try {
         await projectApi.verifyKey();
         if (!cancelled) {
-          setIsConfigured(true);
+          setIsConfigured(Boolean(storedName.trim()));
           setError('');
         }
       } catch (e) {
         try {
           window.localStorage.removeItem('apiKey');
+          window.localStorage.removeItem('displayName');
         } catch (storageError) {
           // ignore
         }
@@ -64,6 +71,7 @@ const ApiKeyGate = ({ children }) => {
         if (!cancelled) {
           setIsConfigured(false);
           setApiKeyInput('');
+          setDisplayNameInput('');
         }
       } finally {
         if (!cancelled) {
@@ -87,9 +95,15 @@ const ApiKeyGate = ({ children }) => {
     }
 
     const apiKey = apiKeyInput.trim();
+    const displayName = displayNameInput.trim();
 
     if (!apiKey) {
       setError('API 키를 입력해주세요.');
+      return;
+    }
+
+    if (!displayName) {
+      setError('사용자 이름을 입력해주세요.');
       return;
     }
 
@@ -103,14 +117,17 @@ const ApiKeyGate = ({ children }) => {
         // 로컬 스토리지에는 단순 난독화 형태로 저장합니다.
         const encodedKey = window.btoa(apiKey);
         window.localStorage.setItem('apiKey', encodedKey);
+        window.localStorage.setItem('displayName', displayName);
       }
 
       setApiKeyInput(apiKey);
+      setDisplayNameInput(displayName);
       setIsConfigured(true);
     } catch (e) {
       if (typeof window !== 'undefined') {
         try {
           window.localStorage.removeItem('apiKey');
+          window.localStorage.removeItem('displayName');
         } catch (storageError) {
           // ignore
         }
@@ -172,6 +189,20 @@ const ApiKeyGate = ({ children }) => {
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">
+              사용자 이름
+            </label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 rounded bg-slate-900 border border-slate-600 text-sm"
+              value={displayNameInput}
+              onChange={(e) => setDisplayNameInput(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              새 견적 등록 시 담당자 기본값으로만 사용됩니다.
+            </p>
           </div>
           {error && (
             <div className="text-xs text-red-400 bg-red-900/30 border border-red-700 px-3 py-2 rounded">

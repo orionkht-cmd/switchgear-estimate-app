@@ -54,6 +54,18 @@ export const getStoredApiKey = () => {
   }
 };
 
+export const getStoredDisplayName = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    return window.localStorage.getItem('displayName') || '';
+  } catch (e) {
+    return '';
+  }
+};
+
 export const apiRequest = async (path, options = {}) => {
   const isDefaultMode = !process.env.REACT_APP_API_BASE_URL && 
                         (typeof window === 'undefined' || !window.__backend_base_url);

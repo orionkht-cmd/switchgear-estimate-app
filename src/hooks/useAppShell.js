@@ -3,7 +3,7 @@ import { useAuth } from './useAuth';
 import { useCompanySettings } from './useCompanySettings';
 import { useBackup } from './useBackup';
 import { useProjects } from './useProjects';
-import { projectApi } from '../services/apiClient';
+import { getStoredDisplayName, projectApi } from '../services/apiClient';
 
 export const useAppShell = () => {
   // --- Hooks ---
@@ -115,6 +115,8 @@ export const useAppShell = () => {
     )
       .toString()
       .padStart(3, '0')}`;
+    const displayName = getStoredDisplayName();
+
     setProjectForm({
       projectIdDisplay: defaultId,
       name: '',
@@ -125,7 +127,7 @@ export const useAppShell = () => {
       contractNumber: '',
       productType: '수배전반',
       orderingDepartment: '',
-      manager: '',
+      manager: displayName,
       salesRep: '',
       contractMethod: '수의계약',
       ledgerName:
