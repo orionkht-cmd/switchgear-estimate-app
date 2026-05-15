@@ -147,7 +147,9 @@ export const apiRequest = async (path, options = {}) => {
 
 export const projectApi = {
   health: () => apiRequest('/api/health'),
-  verifyKey: () => apiRequest('/api/verify-key'),
+  verifyKey: (apiKey) => apiRequest('/api/verify-key', apiKey ? {
+    headers: { 'x-api-key': apiKey },
+  } : undefined),
 
   list: (params = {}) => {
     const qs = new URLSearchParams();

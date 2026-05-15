@@ -86,7 +86,9 @@ const ApiKeyGate = ({ children }) => {
       return;
     }
 
-    if (!apiKeyInput) {
+    const apiKey = apiKeyInput.trim();
+
+    if (!apiKey) {
       setError('API 키를 입력해주세요.');
       return;
     }
@@ -95,13 +97,15 @@ const ApiKeyGate = ({ children }) => {
     setChecking(true);
 
     try {
+      await projectApi.verifyKey(apiKey);
+
       if (typeof window !== 'undefined') {
         // 로컬 스토리지에는 단순 난독화 형태로 저장합니다.
-        const encodedKey = window.btoa(apiKeyInput.trim());
+        const encodedKey = window.btoa(apiKey);
         window.localStorage.setItem('apiKey', encodedKey);
       }
 
-      await projectApi.verifyKey();
+      setApiKeyInput(apiKey);
       setIsConfigured(true);
     } catch (e) {
       if (typeof window !== 'undefined') {
