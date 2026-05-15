@@ -6,7 +6,12 @@ const compactNumberFormatter = new Intl.NumberFormat('ko-KR', {
   notation: 'compact',
 });
 
-const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
+const DashboardView = ({
+  projects,
+  companiesList,
+  companyAliases = {},
+  onSelectCompany,
+}) => {
   const totalStats = useMemo(
     () => calculateStatsFromList(projects),
     [projects]
@@ -61,9 +66,13 @@ const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {companiesList.map((company) => {
-            const companyProjects = projects.filter(
-              (p) => p.ledgerName === company
-            );
+            const companyProjects = projects.filter((p) => {
+              const ledgerName = p.ledgerName || '';
+              return (
+                ledgerName === company ||
+                companyAliases[ledgerName] === company
+              );
+            });
             const stats = calculateStatsFromList(companyProjects);
 
             return (
@@ -130,5 +139,4 @@ const DashboardView = ({ projects, companiesList, onSelectCompany }) => {
 };
 
 export default DashboardView;
-
 

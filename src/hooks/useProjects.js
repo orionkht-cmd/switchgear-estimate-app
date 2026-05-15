@@ -29,7 +29,7 @@ const setLocalProjects = (data) => {
     } catch (e) { }
 };
 
-export const useProjects = (user, setLoading) => {
+export const useProjects = (user, setLoading, companyAliases = {}) => {
     // Search & Sort State
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState({
@@ -85,7 +85,13 @@ export const useProjects = (user, setLoading) => {
         let data = [...yearFilteredProjects];
 
         if (selectedCompany !== 'all') {
-            data = data.filter((p) => p.ledgerName === selectedCompany);
+            data = data.filter((p) => {
+                const ledgerName = p.ledgerName || '';
+                return (
+                    ledgerName === selectedCompany ||
+                    companyAliases[ledgerName] === selectedCompany
+                );
+            });
         }
 
         if (selectedStatus !== 'all') {
@@ -156,6 +162,7 @@ export const useProjects = (user, setLoading) => {
         sortConfig,
         selectedCompany,
         selectedStatus,
+        companyAliases,
     ]);
 
     const handleSort = (key) => {

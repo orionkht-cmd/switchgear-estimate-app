@@ -24,6 +24,7 @@ import ApiKeyGate from './components/ApiKeyGate';
 function AppInner() {
   const {
     user,
+    projects,
     loading,
     isConnected,
     activeTab,
@@ -32,6 +33,7 @@ function AppInner() {
     selectedStatus,
     projectYears,
     companies,
+    companyAliases,
     searchQuery,
     sortConfig,
     selectedProject,
@@ -303,6 +305,7 @@ function AppInner() {
               <DashboardView
                 projects={yearFilteredProjects}
                 companiesList={companies}
+                companyAliases={companyAliases}
                 onSelectCompany={(company) =>
                   handleMenuClick('projects', company)
                 }
@@ -345,6 +348,8 @@ function AppInner() {
       <CompanySettingsModal
         isOpen={isCompanyModalOpen}
         companies={companies}
+        projects={projects}
+        companyAliases={companyAliases}
         onSave={handleUpdateCompanies}
         onClose={() => setIsCompanyModalOpen(false)}
       />

@@ -8,7 +8,12 @@ import { getStoredDisplayName, projectApi } from '../services/apiClient';
 export const useAppShell = () => {
   // --- Hooks ---
   const { user, loading, setLoading, authError } = useAuth();
-  const { companies, setCompanies } = useCompanySettings();
+  const {
+    companies,
+    setCompanies,
+    companyAliases,
+    setCompanyAliases,
+  } = useCompanySettings();
   const {
     projects,
     setProjects,
@@ -26,7 +31,7 @@ export const useAppShell = () => {
     projectYears,
     yearFilteredProjects,
     filteredAndSortedProjects,
-  } = useProjects(user, setLoading);
+  } = useProjects(user, setLoading, companyAliases);
   const {
     fileInputRef,
     xlsxLoaded,
@@ -237,6 +242,11 @@ export const useAppShell = () => {
     }
   };
 
+  const handleUpdateCompanies = (nextCompanies, nextAliases = {}) => {
+    setCompanies(nextCompanies);
+    setCompanyAliases(nextAliases);
+  };
+
   const handleProjectUpdate = (updatedProject) => {
     setSelectedProject(updatedProject);
     setProjects((prev) =>
@@ -260,6 +270,7 @@ export const useAppShell = () => {
     selectedStatus,
     projectYears,
     companies,
+    companyAliases,
 
     // search/sort
     searchQuery,
@@ -297,7 +308,7 @@ export const useAppShell = () => {
     handleRestoreClick,
     handleFileChange,
     handleLoadLocalBackup,
-    handleUpdateCompanies: setCompanies,
+    handleUpdateCompanies,
     handleProjectUpdate,
   };
 };
