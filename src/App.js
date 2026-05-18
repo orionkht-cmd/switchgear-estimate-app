@@ -36,6 +36,7 @@ function AppInner({ displayName, onLogout }) {
     companies,
     visibleCompanies,
     companyAliases,
+    hiddenCompanies,
     searchQuery,
     sortConfig,
     selectedProject,
@@ -365,6 +366,7 @@ function AppInner({ displayName, onLogout }) {
         companies={companies}
         projects={projects}
         companyAliases={companyAliases}
+        hiddenCompanies={hiddenCompanies}
         onSave={handleUpdateCompanies}
         onClose={() => setIsCompanyModalOpen(false)}
       />

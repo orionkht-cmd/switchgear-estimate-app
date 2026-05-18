@@ -13,6 +13,8 @@ export const useAppShell = () => {
     setCompanies,
     companyAliases,
     setCompanyAliases,
+    hiddenCompanies,
+    setHiddenCompanies,
   } = useCompanySettings();
   const {
     projects,
@@ -40,21 +42,24 @@ export const useAppShell = () => {
     handleFileChange,
   } = useBackup(projects, setProjects);
   const visibleCompanies = useMemo(() => {
+    const hiddenSet = new Set(hiddenCompanies);
     const names = new Set(companies);
     projects.forEach((project) => {
       const ledgerName = (project.ledgerName || '').trim();
-      if (!ledgerName) return;
+      if (!ledgerName || hiddenSet.has(ledgerName)) return;
 
       const mappedName = companyAliases[ledgerName];
       if (mappedName) {
-        names.add(mappedName);
+        if (!hiddenSet.has(mappedName)) {
+          names.add(mappedName);
+        }
         return;
       }
 
       names.add(ledgerName);
     });
-    return Array.from(names);
-  }, [companies, companyAliases, projects]);
+    return Array.from(names).filter((name) => !hiddenSet.has(name));
+  }, [companies, companyAliases, hiddenCompanies, projects]);
 
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -258,9 +263,14 @@ export const useAppShell = () => {
     }
   };
 
-  const handleUpdateCompanies = (nextCompanies, nextAliases = {}) => {
+  const handleUpdateCompanies = (
+    nextCompanies,
+    nextAliases = {},
+    nextHiddenCompanies = hiddenCompanies,
+  ) => {
     setCompanies(nextCompanies);
     setCompanyAliases(nextAliases);
+    setHiddenCompanies(nextHiddenCompanies);
   };
 
   const handleProjectUpdate = (updatedProject) => {
@@ -288,6 +298,7 @@ export const useAppShell = () => {
     companies,
     visibleCompanies,
     companyAliases,
+    hiddenCompanies,
 
     // search/sort
     searchQuery,
