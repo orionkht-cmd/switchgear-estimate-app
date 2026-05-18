@@ -43,10 +43,18 @@ export const useAppShell = () => {
     const names = new Set(companies);
     projects.forEach((project) => {
       const ledgerName = (project.ledgerName || '').trim();
-      if (ledgerName) names.add(ledgerName);
+      if (!ledgerName) return;
+
+      const mappedName = companyAliases[ledgerName];
+      if (mappedName) {
+        names.add(mappedName);
+        return;
+      }
+
+      names.add(ledgerName);
     });
     return Array.from(names);
-  }, [companies, projects]);
+  }, [companies, companyAliases, projects]);
 
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState('dashboard');
