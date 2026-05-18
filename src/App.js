@@ -34,6 +34,7 @@ function AppInner({ displayName, onLogout }) {
     selectedStatus,
     projectYears,
     companies,
+    visibleCompanies,
     companyAliases,
     searchQuery,
     sortConfig,
@@ -131,7 +132,7 @@ function AppInner({ displayName, onLogout }) {
                 <Edit3 className="w-3 h-3" /> 편집
               </button>
             </div>
-            {companies.map((company) => (
+            {visibleCompanies.map((company) => (
               <button
                 key={company}
                 onClick={() => handleMenuClick('projects', company)}
@@ -318,7 +319,7 @@ function AppInner({ displayName, onLogout }) {
             {activeTab === 'dashboard' ? (
               <DashboardView
                 projects={yearFilteredProjects}
-                companiesList={companies}
+                companiesList={visibleCompanies}
                 companyAliases={companyAliases}
                 onSelectCompany={(company) =>
                   handleMenuClick('projects', company)
@@ -354,7 +355,7 @@ function AppInner({ displayName, onLogout }) {
         isEditMode={isEditMode}
         projectForm={projectForm}
         setProjectForm={setProjectForm}
-        companiesList={companies}
+        companiesList={visibleCompanies}
         onSave={handleSaveProject}
         onClose={handleCloseCreateModal}
       />

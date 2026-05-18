@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { useCompanySettings } from './useCompanySettings';
 import { useBackup } from './useBackup';
@@ -39,6 +39,14 @@ export const useAppShell = () => {
     handleRestoreClick,
     handleFileChange,
   } = useBackup(projects, setProjects);
+  const visibleCompanies = useMemo(() => {
+    const names = new Set(companies);
+    projects.forEach((project) => {
+      const ledgerName = (project.ledgerName || '').trim();
+      if (ledgerName) names.add(ledgerName);
+    });
+    return Array.from(names);
+  }, [companies, projects]);
 
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -138,7 +146,7 @@ export const useAppShell = () => {
       ledgerName:
         selectedCompany !== 'all'
           ? selectedCompany
-          : companies[0] || '골드텍',
+          : visibleCompanies[0] || '골드텍',
       contractAmount: 0,
     });
     setIsEditMode(false);
@@ -166,7 +174,7 @@ export const useAppShell = () => {
       salesRep: selectedProject.salesRep,
       contractMethod: selectedProject.contractMethod,
       ledgerName:
-        selectedProject.ledgerName || companies[0] || '골드텍',
+        selectedProject.ledgerName || visibleCompanies[0] || '골드텍',
       contractAmount: selectedProject.contractAmount || 0,
     });
     setIsEditMode(true);
@@ -270,6 +278,7 @@ export const useAppShell = () => {
     selectedStatus,
     projectYears,
     companies,
+    visibleCompanies,
     companyAliases,
 
     // search/sort
