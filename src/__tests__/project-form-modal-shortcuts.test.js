@@ -17,6 +17,7 @@ const baseProjectForm = {
   manager: '',
   contractAmount: '',
   contractMethod: '수의계약',
+  attachedFiles: [],
 };
 
 function TestWrapper(props) {
@@ -57,5 +58,25 @@ describe('ProjectFormModal date shortcuts', () => {
     });
 
     expect(estimateDateInput).toHaveValue('2026-04-22');
+  });
+
+  test('shows selected PDF and ZIP attachments and allows removing them', () => {
+    render(<TestWrapper />);
+
+    const attachmentInput = screen.getByLabelText(/PDF \/ 압축파일/);
+    const pdf = new File(['sample'], '도면.pdf', { type: 'application/pdf' });
+    const zip = new File(['sample'], '견적자료.zip', { type: 'application/zip' });
+
+    fireEvent.change(attachmentInput, {
+      target: { files: [pdf, zip] },
+    });
+
+    expect(screen.getByText('도면.pdf')).toBeInTheDocument();
+    expect(screen.getByText('견적자료.zip')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByText('삭제')[0]);
+
+    expect(screen.queryByText('도면.pdf')).not.toBeInTheDocument();
+    expect(screen.getByText('견적자료.zip')).toBeInTheDocument();
   });
 });

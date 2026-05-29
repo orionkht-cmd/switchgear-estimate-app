@@ -70,6 +70,30 @@ function isTodayDateShortcut(e) {
   return !e.shiftKey && (e.key === ';' || e.code === 'Semicolon');
 }
 
+function formatFileSize(bytes = 0) {
+  if (!bytes) return '0 KB';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function buildAttachmentRecord(file) {
+  return {
+    id: `${Date.now()}-${file.name}`,
+    name: file.name,
+    size: file.size,
+    type: file.type || 'application/octet-stream',
+    extension: file.name.includes('.')
+      ? file.name.split('.').pop().toLowerCase()
+      : '',
+    addedAt: new Date().toISOString(),
+  };
+}
+
 const ProjectFormModal = ({
   isOpen,
   isEditMode,
@@ -81,6 +105,9 @@ const ProjectFormModal = ({
 }) => {
   const [lockedDate, setLockedDate] = React.useState('');
   const [dateError, setDateError] = React.useState('');
+  const attachedFiles = Array.isArray(projectForm.attachedFiles)
+    ? projectForm.attachedFiles
+    : [];
 
   // 모달 열릴 때 "원본 날짜" 고정 (잠금 판정에 사용)
   React.useEffect(() => {
@@ -140,6 +167,27 @@ const ProjectFormModal = ({
     if (index > -1 && index < elements.length - 1) {
       elements[index + 1].focus();
     }
+  };
+
+  const handleAttachmentChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const nextFiles = files.map(buildAttachmentRecord);
+    setProjectForm((prev) => ({
+      ...prev,
+      attachedFiles: [...(Array.isArray(prev.attachedFiles) ? prev.attachedFiles : []), ...nextFiles],
+    }));
+    e.target.value = '';
+  };
+
+  const handleRemoveAttachment = (attachmentId) => {
+    setProjectForm((prev) => ({
+      ...prev,
+      attachedFiles: (Array.isArray(prev.attachedFiles) ? prev.attachedFiles : []).filter(
+        (file) => file.id !== attachmentId,
+      ),
+    }));
   };
 
   if (!isOpen) return null;
@@ -450,6 +498,46 @@ const ProjectFormModal = ({
               <option value="3자단가">3자단가</option>
               <option value="기타">기타</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="project-attachments" className="text-xs text-slate-500 block mb-1">
+              PDF / 압축파일
+            </label>
+            <input
+              id="project-attachments"
+              type="file"
+              multiple
+              accept=".pdf,.zip,.7z,.rar,application/pdf,application/zip,application/x-zip-compressed,application/x-7z-compressed,application/vnd.rar"
+              className="w-full border p-2 rounded bg-slate-50 text-sm"
+              onChange={handleAttachmentChange}
+            />
+            {attachedFiles.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {attachedFiles.map((file) => (
+                  <div
+                    key={file.id || file.name}
+                    className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-slate-700">
+                        {file.name}
+                      </div>
+                      <div className="text-slate-400">
+                        {formatFileSize(file.size)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(file.id)}
+                      className="shrink-0 rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <button

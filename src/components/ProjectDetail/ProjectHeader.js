@@ -8,8 +8,20 @@ import {
     Trash2,
     Edit,
     FileText,
+    Paperclip,
 } from 'lucide-react';
 import StatusBadge from '../StatusBadge';
+
+function formatFileSize(bytes = 0) {
+    if (!bytes) return '0 KB';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const index = Math.min(
+        Math.floor(Math.log(bytes) / Math.log(1024)),
+        units.length - 1,
+    );
+    const value = bytes / Math.pow(1024, index);
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
 
 const ProjectHeader = ({
     project,
@@ -20,6 +32,10 @@ const ProjectHeader = ({
     onClose,
     onOpenMemo,
 }) => {
+    const attachedFiles = Array.isArray(project.attachedFiles)
+        ? project.attachedFiles
+        : [];
+
     return (
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 print:bg-white print:border-b-2 gap-4">
             <div>
@@ -60,6 +76,23 @@ const ProjectHeader = ({
                         <strong>{project.manager}</strong>
                     </span>
                 </div>
+                {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
+                        {attachedFiles.map((file) => (
+                            <span
+                                key={file.id || file.name}
+                                className="inline-flex max-w-[240px] items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1"
+                                title={file.name}
+                            >
+                                <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
+                                <span className="truncate">{file.name}</span>
+                                <span className="shrink-0 text-slate-400">
+                                    {formatFileSize(file.size)}
+                                </span>
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-2 no-print">

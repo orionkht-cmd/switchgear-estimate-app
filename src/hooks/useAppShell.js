@@ -85,6 +85,7 @@ export const useAppShell = () => {
     contractMethod: '수의계약',
     ledgerName: '골드텍',
     contractAmount: 0,
+    attachedFiles: [],
   });
 
   // --- Effects ---
@@ -161,6 +162,7 @@ export const useAppShell = () => {
           ? selectedCompany
           : visibleCompanies[0] || '골드텍',
       contractAmount: 0,
+      attachedFiles: [],
     });
     setIsEditMode(false);
     setIsNewProjectModalOpen(true);
@@ -189,6 +191,9 @@ export const useAppShell = () => {
       ledgerName:
         selectedProject.ledgerName || visibleCompanies[0] || '골드텍',
       contractAmount: selectedProject.contractAmount || 0,
+      attachedFiles: Array.isArray(selectedProject.attachedFiles)
+        ? selectedProject.attachedFiles
+        : [],
     });
     setIsEditMode(true);
     setIsNewProjectModalOpen(true);
