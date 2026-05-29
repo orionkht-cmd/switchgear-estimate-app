@@ -1,6 +1,5 @@
 const DEFAULT_BACKENDS = [
-  'https://marisa-server.tail5c2348.ts.net/estimate',
-  'https://marisa-server.tail5c2348.ts.net:8443/estimate'
+  'https://marisa-server.tail5c2348.ts.net/estimate'
 ];
 
 let activeFallbackIndex = 0;
