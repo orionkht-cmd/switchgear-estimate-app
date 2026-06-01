@@ -29,6 +29,13 @@ const createApiRouter = ({ db } = {}) => {
     throw new Error('Database instance is required');
   }
 
+  const DEFAULT_COMPANY_SETTINGS = {
+    companies: ['골드텍', '한양기전공업', '한양기전', '새봄엔지니어링', '기타'],
+    companyAliases: {},
+    hiddenCompanies: [],
+  };
+  const COMPANY_SETTINGS_KEY = 'company-settings';
+
   const router = express.Router();
   const selectProjectStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
   const updateProjectStmt = db.prepare(`
@@ -43,6 +50,77 @@ const createApiRouter = ({ db } = {}) => {
         updatedAt = @updatedAt
     WHERE id = @id
   `);
+  const selectSettingStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+  const upsertSettingStmt = db.prepare(`
+    INSERT INTO settings (key, value)
+    VALUES (@key, @value)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+
+  const normalizeStringArray = (value) => {
+    if (!Array.isArray(value)) return [];
+    return Array.from(
+      new Set(
+        value
+          .filter((item) => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+  };
+
+  const normalizeAliases = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(
+          ([ledgerName, companyName]) =>
+            typeof ledgerName === 'string' &&
+            ledgerName.trim() &&
+            typeof companyName === 'string' &&
+            companyName.trim(),
+        )
+        .map(([ledgerName, companyName]) => [
+          ledgerName.trim(),
+          companyName.trim(),
+        ]),
+    );
+  };
+
+  const normalizeCompanySettings = (value = {}) => {
+    const companies = normalizeStringArray(value.companies);
+    return {
+      companies: Array.from(
+        new Set([
+          ...(companies.length ? companies : DEFAULT_COMPANY_SETTINGS.companies),
+          ...DEFAULT_COMPANY_SETTINGS.companies,
+        ]),
+      ),
+      companyAliases: normalizeAliases(value.companyAliases),
+      hiddenCompanies: normalizeStringArray(value.hiddenCompanies),
+    };
+  };
+
+  const loadCompanySettings = () => {
+    const row = selectSettingStmt.get(COMPANY_SETTINGS_KEY);
+    if (!row || !row.value) {
+      return normalizeCompanySettings();
+    }
+
+    return normalizeCompanySettings(safeParseJson(row.value, {}));
+  };
+
+  const saveCompanySettings = (settings) => {
+    const normalized = normalizeCompanySettings(settings);
+    upsertSettingStmt.run({
+      key: COMPANY_SETTINGS_KEY,
+      value: JSON.stringify(normalized),
+    });
+    return normalized;
+  };
 
   const persistProject = (project) => {
     const dbProject = buildDbFieldsFromProject({
@@ -134,6 +212,18 @@ const createApiRouter = ({ db } = {}) => {
   // 2. API Key Verification
   router.get('/verify-key', (req, res) =>
     res.json({ valid: true }),
+  );
+
+  router.get('/settings/company-settings', (req, res) => {
+    res.json(loadCompanySettings());
+  });
+
+  router.put(
+    '/settings/company-settings',
+    requireJsonObjectBody,
+    (req, res) => {
+      res.json(saveCompanySettings(req.body));
+    },
   );
 
   // 3. 프로젝트 목록 조회

@@ -185,6 +185,46 @@ test('verify-key rejects invalid api key with a distinct error', async () => {
   });
 });
 
+test('company settings persist shared company list', async () => {
+  const headers = { 'x-api-key': 'test-api-key' };
+
+  const defaults = await requestJson({
+    method: 'GET',
+    path: '/api/settings/company-settings',
+    headers,
+  });
+
+  assert.strictEqual(defaults.status, 200);
+  assert.ok(defaults.body.companies.includes('기타'));
+
+  const saved = await requestJson({
+    method: 'PUT',
+    path: '/api/settings/company-settings',
+    headers,
+    body: {
+      companies: ['골드텍', '신규회사'],
+      companyAliases: { 새봄이앤지건축사: '새봄엔지니어링' },
+      hiddenCompanies: ['숨김회사'],
+    },
+  });
+
+  assert.strictEqual(saved.status, 200);
+  assert.ok(saved.body.companies.includes('신규회사'));
+  assert.ok(saved.body.companies.includes('기타'));
+  assert.deepStrictEqual(saved.body.companyAliases, {
+    새봄이앤지건축사: '새봄엔지니어링',
+  });
+
+  const fetched = await requestJson({
+    method: 'GET',
+    path: '/api/settings/company-settings',
+    headers,
+  });
+
+  assert.strictEqual(fetched.status, 200);
+  assert.deepStrictEqual(fetched.body, saved.body);
+});
+
 test('basic project CRUD works with api key', async () => {
   const headers = { 'x-api-key': 'test-api-key' };
 

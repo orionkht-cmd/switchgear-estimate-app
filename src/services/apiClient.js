@@ -254,6 +254,14 @@ export const projectApi = {
       method: 'DELETE',
     }),
 
+  getCompanySettings: () => apiRequest('/api/settings/company-settings'),
+
+  updateCompanySettings: (data) =>
+    apiRequest('/api/settings/company-settings', {
+      method: 'PUT',
+      body: data,
+    }),
+
   addRevision: (projectId, data) => apiRequest(`/api/projects/${projectId}/revisions`, {
     method: 'POST',
     body: data,

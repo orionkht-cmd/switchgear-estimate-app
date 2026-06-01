@@ -15,6 +15,7 @@ export const useAppShell = () => {
     setCompanyAliases,
     hiddenCompanies,
     setHiddenCompanies,
+    saveCompanySettings,
   } = useCompanySettings();
   const {
     projects,
@@ -299,6 +300,9 @@ export const useAppShell = () => {
     setCompanies(nextCompanies);
     setCompanyAliases(nextAliases);
     setHiddenCompanies(nextHiddenCompanies);
+    saveCompanySettings(nextCompanies, nextAliases, nextHiddenCompanies).catch((e) => {
+      alert('회사 목록을 백엔드에 저장하지 못했습니다: ' + e.message);
+    });
   };
 
   const handleProjectUpdate = (updatedProject) => {
