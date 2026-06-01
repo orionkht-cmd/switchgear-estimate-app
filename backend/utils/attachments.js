@@ -12,8 +12,22 @@ const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   'application/octet-stream',
 ]);
 
+const decodeMojibakeFilename = (value) => {
+  const filename = String(value || '');
+  if (!/[\u00c0-\u00ff]/.test(filename)) {
+    return filename;
+  }
+
+  const decoded = Buffer.from(filename, 'latin1').toString('utf8');
+  if (decoded.includes('\uFFFD')) {
+    return filename;
+  }
+
+  return /[\uac00-\ud7af]/.test(decoded) ? decoded : filename;
+};
+
 const sanitizeOriginalFilename = (value) => {
-  const basename = path.basename(String(value || 'attachment'));
+  const basename = path.basename(decodeMojibakeFilename(value || 'attachment'));
   const cleaned = basename
     .replace(/[\u0000-\u001f\u007f]/g, '')
     .replace(/[<>:"/\\|?*]+/g, '_')

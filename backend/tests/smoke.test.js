@@ -299,6 +299,33 @@ test('uploads and downloads a PDF attachment', async () => {
   assert.strictEqual(downloaded.status, 200);
 });
 
+test('preserves Korean attachment filenames', async () => {
+  const headers = { 'x-api-key': 'test-api-key' };
+  const created = await requestJson({
+    method: 'POST',
+    path: '/api/projects',
+    headers,
+    body: { name: 'Korean Filename Project', client: 'Client A' },
+  });
+
+  const uploaded = await uploadFiles({
+    projectId: created.body.id,
+    files: [
+      {
+        name: '물품계약서(최종)(260528).pdf',
+        type: 'application/pdf',
+        content: Buffer.from('%PDF-1.4\n%%EOF\n'),
+      },
+    ],
+  });
+
+  assert.strictEqual(uploaded.status, 200);
+  assert.strictEqual(
+    uploaded.body.attachedFiles[0].name,
+    '물품계약서(최종)(260528).pdf',
+  );
+});
+
 test('uploads a ZIP attachment and rejects unsupported files', async () => {
   const headers = { 'x-api-key': 'test-api-key' };
   const created = await requestJson({
