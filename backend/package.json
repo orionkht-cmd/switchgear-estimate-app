@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "send-db-email": "node send-db-email.js"
   },
   "keywords": [],
@@ -17,6 +17,7 @@
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "lowdb": "^1.0.0",
+    "multer": "^2.1.1",
     "nodemailer": "^6.9.15",
     "xlsx": "^0.18.5"
   }
