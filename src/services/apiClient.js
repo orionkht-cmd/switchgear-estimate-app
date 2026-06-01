@@ -156,6 +156,49 @@ export const apiRequest = async (path, options = {}) => {
   }
 };
 
+export const apiFetch = async (path, options = {}) => {
+  const headers = { ...(options.headers || {}) };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const apiKey = getStoredApiKey();
+      if (apiKey && !headers['x-api-key']) {
+        headers['x-api-key'] = apiKey;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const baseUrl = getApiBaseUrl();
+  const url =
+    path.startsWith('http://') || path.startsWith('https://')
+      ? path
+      : `${baseUrl}${path}`;
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = new Error('API request failed');
+    error.status = response.status;
+    try {
+      error.payload = await response.json();
+    } catch (e) {
+      try {
+        error.payload = await response.text();
+      } catch (e2) {
+        error.payload = null;
+      }
+    }
+    throw error;
+  }
+
+  return response;
+};
+
 export const projectApi = {
   health: () => apiRequest('/api/health'),
   verifyKey: (apiKey) => apiRequest('/api/verify-key', apiKey ? {
@@ -189,6 +232,27 @@ export const projectApi = {
   remove: (id) => apiRequest(`/api/projects/${id}`, {
     method: 'DELETE',
   }),
+
+  uploadAttachments: (projectId, files = []) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    return apiRequest(`/api/projects/${projectId}/attachments`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  getAttachmentBlob: async (projectId, attachmentId) => {
+    const response = await apiFetch(
+      `/api/projects/${projectId}/attachments/${attachmentId}`,
+    );
+    return response.blob();
+  },
+
+  deleteAttachment: (projectId, attachmentId) =>
+    apiRequest(`/api/projects/${projectId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    }),
 
   addRevision: (projectId, data) => apiRequest(`/api/projects/${projectId}/revisions`, {
     method: 'POST',

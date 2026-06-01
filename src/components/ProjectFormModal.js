@@ -83,7 +83,7 @@ function formatFileSize(bytes = 0) {
 
 function buildAttachmentRecord(file) {
   return {
-    id: `${Date.now()}-${file.name}`,
+    id: `pending-${Date.now()}-${file.name}`,
     name: file.name,
     size: file.size,
     type: file.type || 'application/octet-stream',
@@ -91,6 +91,7 @@ function buildAttachmentRecord(file) {
       ? file.name.split('.').pop().toLowerCase()
       : '',
     addedAt: new Date().toISOString(),
+    isPending: true,
   };
 }
 
@@ -108,6 +109,11 @@ const ProjectFormModal = ({
   const attachedFiles = Array.isArray(projectForm.attachedFiles)
     ? projectForm.attachedFiles
     : [];
+  const pendingAttachmentFiles = Array.isArray(projectForm.pendingAttachmentFiles)
+    ? projectForm.pendingAttachmentFiles
+    : [];
+  const pendingAttachmentRecords = pendingAttachmentFiles.map(({ file, record }) => record);
+  const displayedAttachedFiles = [...attachedFiles, ...pendingAttachmentRecords];
 
   // 모달 열릴 때 "원본 날짜" 고정 (잠금 판정에 사용)
   React.useEffect(() => {
@@ -173,10 +179,16 @@ const ProjectFormModal = ({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const nextFiles = files.map(buildAttachmentRecord);
+    const nextFiles = files.map((file) => ({
+      file,
+      record: buildAttachmentRecord(file),
+    }));
     setProjectForm((prev) => ({
       ...prev,
-      attachedFiles: [...(Array.isArray(prev.attachedFiles) ? prev.attachedFiles : []), ...nextFiles],
+      pendingAttachmentFiles: [
+        ...(Array.isArray(prev.pendingAttachmentFiles) ? prev.pendingAttachmentFiles : []),
+        ...nextFiles,
+      ],
     }));
     e.target.value = '';
   };
@@ -187,6 +199,18 @@ const ProjectFormModal = ({
       attachedFiles: (Array.isArray(prev.attachedFiles) ? prev.attachedFiles : []).filter(
         (file) => file.id !== attachmentId,
       ),
+      deletedAttachmentIds: [
+        ...(Array.isArray(prev.deletedAttachmentIds) ? prev.deletedAttachmentIds : []),
+        ...((Array.isArray(prev.attachedFiles) ? prev.attachedFiles : []).some(
+          (file) => file.id === attachmentId,
+        )
+          ? [attachmentId]
+          : []),
+      ],
+      pendingAttachmentFiles: (Array.isArray(prev.pendingAttachmentFiles)
+        ? prev.pendingAttachmentFiles
+        : []
+      ).filter(({ record }) => record.id !== attachmentId),
     }));
   };
 
@@ -512,9 +536,9 @@ const ProjectFormModal = ({
               className="w-full border p-2 rounded bg-slate-50 text-sm"
               onChange={handleAttachmentChange}
             />
-            {attachedFiles.length > 0 && (
+            {displayedAttachedFiles.length > 0 && (
               <div className="mt-2 space-y-2">
-                {attachedFiles.map((file) => (
+                {displayedAttachedFiles.map((file) => (
                   <div
                     key={file.id || file.name}
                     className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1.5 text-xs"
@@ -525,6 +549,7 @@ const ProjectFormModal = ({
                       </div>
                       <div className="text-slate-400">
                         {formatFileSize(file.size)}
+                        {file.isPending ? ' · 저장 시 업로드' : ''}
                       </div>
                     </div>
                     <button

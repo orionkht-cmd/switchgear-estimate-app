@@ -9,8 +9,11 @@ import {
     Edit,
     FileText,
     Paperclip,
+    Download,
+    Eye,
 } from 'lucide-react';
 import StatusBadge from '../StatusBadge';
+import { projectApi } from '../../services/apiClient';
 
 function formatFileSize(bytes = 0) {
     if (!bytes) return '0 KB';
@@ -35,6 +38,35 @@ const ProjectHeader = ({
     const attachedFiles = Array.isArray(project.attachedFiles)
         ? project.attachedFiles
         : [];
+    const openAttachmentBlob = async (file, { preview = false } = {}) => {
+        try {
+            const blob = await projectApi.getAttachmentBlob(project.id, file.id);
+            const url = URL.createObjectURL(blob);
+
+            if (preview) {
+                const opened = window.open(url, '_blank', 'noopener,noreferrer');
+                if (!opened) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.click();
+                }
+                window.setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.name || 'attachment';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            alert('첨부파일을 불러오지 못했습니다.');
+        }
+    };
 
     return (
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 print:bg-white print:border-b-2 gap-4">
@@ -79,9 +111,9 @@ const ProjectHeader = ({
                 {attachedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2 text-xs text-slate-600">
                         {attachedFiles.map((file) => (
-                            <span
+                            <div
                                 key={file.id || file.name}
-                                className="inline-flex max-w-[240px] items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1"
+                                className="inline-flex max-w-[320px] items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1"
                                 title={file.name}
                             >
                                 <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
@@ -89,7 +121,27 @@ const ProjectHeader = ({
                                 <span className="shrink-0 text-slate-400">
                                     {formatFileSize(file.size)}
                                 </span>
-                            </span>
+                                {file.extension === 'pdf' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openAttachmentBlob(file, { preview: true })}
+                                        className="shrink-0 rounded p-1 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
+                                        aria-label={`${file.name} 미리보기`}
+                                        title="미리보기"
+                                    >
+                                        <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => openAttachmentBlob(file)}
+                                    className="shrink-0 rounded p-1 text-slate-500 hover:bg-green-50 hover:text-green-600"
+                                    aria-label={`${file.name} 다운로드`}
+                                    title="다운로드"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
                         ))}
                     </div>
                 )}

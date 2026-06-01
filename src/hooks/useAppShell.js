@@ -86,6 +86,8 @@ export const useAppShell = () => {
     ledgerName: '골드텍',
     contractAmount: 0,
     attachedFiles: [],
+    pendingAttachmentFiles: [],
+    deletedAttachmentIds: [],
   });
 
   // --- Effects ---
@@ -163,6 +165,8 @@ export const useAppShell = () => {
           : visibleCompanies[0] || '골드텍',
       contractAmount: 0,
       attachedFiles: [],
+      pendingAttachmentFiles: [],
+      deletedAttachmentIds: [],
     });
     setIsEditMode(false);
     setIsNewProjectModalOpen(true);
@@ -194,6 +198,8 @@ export const useAppShell = () => {
       attachedFiles: Array.isArray(selectedProject.attachedFiles)
         ? selectedProject.attachedFiles
         : [],
+      pendingAttachmentFiles: [],
+      deletedAttachmentIds: [],
     });
     setIsEditMode(true);
     setIsNewProjectModalOpen(true);
@@ -211,6 +217,14 @@ export const useAppShell = () => {
         projectForm.contractAmount || 0,
         10,
       );
+      const {
+        pendingAttachmentFiles = [],
+        deletedAttachmentIds = [],
+        ...projectPayload
+      } = projectForm;
+      const pendingFiles = pendingAttachmentFiles
+        .map((item) => item.file)
+        .filter(Boolean);
 
       if (isEditMode) {
         // 수정 모드일 때 ID 찾기 (projectForm.id 우선)
@@ -220,12 +234,18 @@ export const useAppShell = () => {
           throw new Error('수정할 프로젝트 ID를 찾을 수 없습니다.');
         }
 
+        for (const attachmentId of deletedAttachmentIds) {
+          await projectApi.deleteAttachment(targetId, attachmentId);
+        }
+
         await projectApi.update(targetId, {
-          ...projectForm,
+          ...projectPayload,
           contractAmount: parsedContractAmount,
           lastModifier: user.uid,
         });
-        const updatedProject = await projectApi.get(targetId);
+        const updatedProject = pendingFiles.length > 0
+          ? await projectApi.uploadAttachments(targetId, pendingFiles)
+          : await projectApi.get(targetId);
         setProjects((prevProjects) =>
           (Array.isArray(prevProjects) ? prevProjects : []).map((project) =>
             project.id === targetId ? updatedProject : project
@@ -235,7 +255,8 @@ export const useAppShell = () => {
         alert('프로젝트 정보가 수정되었습니다.');
       } else {
         const newProject = await projectApi.create({
-          ...projectForm,
+          ...projectPayload,
+          attachedFiles: [],
           contractAmount: parsedContractAmount,
           createdBy: user.uid,
         });
@@ -255,7 +276,9 @@ export const useAppShell = () => {
             console.error('초기 리비전 등록 실패:', revError);
           }
         }
-        const createdProject = await projectApi.get(newProject.id);
+        const createdProject = pendingFiles.length > 0
+          ? await projectApi.uploadAttachments(newProject.id, pendingFiles)
+          : await projectApi.get(newProject.id);
         setProjects((prevProjects) => [
           createdProject,
           ...(Array.isArray(prevProjects) ? prevProjects : []),
