@@ -4,10 +4,12 @@ const PRODUCT_TYPE_OPTIONS = [
   '수배전반',
   'MCC',
   '분전반',
+  '공사',
   '자동제어',
   '용역',
   '기타',
 ];
+const CUSTOM_PRODUCT_TYPE_VALUE = '__custom_product_type__';
 
 function digitsOnly(v) {
   return (v || '').replace(/[^0-9]/g, '');
@@ -106,6 +108,7 @@ const ProjectFormModal = ({
 }) => {
   const [lockedDate, setLockedDate] = React.useState('');
   const [dateError, setDateError] = React.useState('');
+  const [isCustomProductType, setIsCustomProductType] = React.useState(false);
   const attachedFiles = Array.isArray(projectForm.attachedFiles)
     ? projectForm.attachedFiles
     : [];
@@ -120,9 +123,13 @@ const ProjectFormModal = ({
     if (isOpen) {
       setLockedDate(projectForm.estimateDate || '');
       setDateError('');
+      setIsCustomProductType(Boolean(
+        projectForm.productType && !PRODUCT_TYPE_OPTIONS.includes(projectForm.productType),
+      ));
     } else {
       setLockedDate('');
       setDateError('');
+      setIsCustomProductType(false);
     }
   }, [isOpen, projectForm.estimateDate]); // estimateDate가 바뀔 때가 아니라 모달이 '열릴 때'의 값을 잡아야 함
 
@@ -215,6 +222,13 @@ const ProjectFormModal = ({
   };
 
   if (!isOpen) return null;
+
+  const isUsingCustomProductType = isCustomProductType || Boolean(
+    projectForm.productType && !PRODUCT_TYPE_OPTIONS.includes(projectForm.productType),
+  );
+  const selectedProductType = isUsingCustomProductType
+    ? CUSTOM_PRODUCT_TYPE_VALUE
+    : projectForm.productType || '수배전반';
 
   return (
     <div
@@ -396,20 +410,45 @@ const ProjectFormModal = ({
               <select
                 id="project-product-type"
                 className="w-full border p-2 rounded"
-                value={projectForm.productType || '수배전반'}
-                onChange={(e) =>
+                value={selectedProductType}
+                onChange={(e) => {
+                  const nextProductType = e.target.value;
+                  if (nextProductType === CUSTOM_PRODUCT_TYPE_VALUE) {
+                    setIsCustomProductType(true);
+                    setProjectForm((prev) => ({
+                      ...prev,
+                      productType: '',
+                    }));
+                    return;
+                  }
+                  setIsCustomProductType(false);
                   setProjectForm((prev) => ({
                     ...prev,
-                    productType: e.target.value,
-                  }))
-                }
+                    productType: nextProductType,
+                  }));
+                }}
               >
                 {PRODUCT_TYPE_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
+                <option value={CUSTOM_PRODUCT_TYPE_VALUE}>직접 입력</option>
               </select>
+              {isUsingCustomProductType && (
+                <input
+                  id="project-product-type-custom"
+                  className="w-full border p-2 rounded mt-2"
+                  value={projectForm.productType || ''}
+                  placeholder="품명 직접 입력"
+                  onChange={(e) =>
+                    setProjectForm((prev) => ({
+                      ...prev,
+                      productType: e.target.value,
+                    }))
+                  }
+                />
+              )}
             </div>
           </div>
 
